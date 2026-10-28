@@ -180,13 +180,28 @@ table.cheat th { font: 600 .72rem var(--f-code); letter-spacing: .06em; text-tra
   nav.route details:not([open]) ol { display: none; }
 }
 @media (min-width: 901px) { nav.route summary { list-style: none; pointer-events: none; } nav.route summary::-webkit-details-marker { display: none; } }
+/* Collapsing the side list: only while it is on the left. On top it folds through <details>. */
+.navtoggle { display: none; }
+@media (min-width: 901px) {
+  .navtoggle {
+    display: inline-flex; align-items: center; gap: 6px; margin-bottom: 12px; padding: 4px 9px; cursor: pointer;
+    font: 600 .7rem var(--f-code); letter-spacing: .06em; text-transform: uppercase;
+    color: var(--muted); background: var(--panel); border: 1px solid var(--line); border-radius: 6px;
+  }
+  .navtoggle:hover { color: var(--ink); border-color: var(--accent); }
+  .shell.nav-collapsed { grid-template-columns: 34px minmax(0, 1fr); }
+  .shell.nav-collapsed nav.route { overflow: visible; padding-right: 0; }
+  .shell.nav-collapsed nav.route details { display: none; }
+  .shell.nav-collapsed .navtoggle { writing-mode: vertical-rl; padding: 10px 5px; margin: 0; }
+}
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
 </style>
 </head>
 <body>
 <div class="shell">
 <nav class="route" aria-label="Stops">
-  <details open>
+  <button type="button" class="navtoggle" id="navtoggle" aria-controls="route-body" aria-expanded="true">‹ Hide stops</button>
+  <details open id="route-body">
     <summary><div class="brand">IFS Dependency Map, read as Rust<small>a walkthrough of the code</small></div></summary>
     <div class="progress"><span id="progress-text">0 stops read</span><div class="bar"><i id="progress-bar"></i></div></div>
     <ol id="route-list"></ol>
@@ -4463,6 +4478,21 @@ fn finds_all_three_cycles_and_classifies_them() {
 
   // Route list, tags, footers.
   const store = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
+  // The side list's collapse button (shown only while the list is on the left), remembered per browser.
+  const shell = document.querySelector(".shell"), navToggle = document.getElementById("navtoggle");
+  const setNav = (collapsed) => {
+    shell.classList.toggle("nav-collapsed", collapsed);
+    navToggle.setAttribute("aria-expanded", String(!collapsed));
+    navToggle.textContent = collapsed ? "Stops ›" : "‹ Hide stops";
+    navToggle.title = collapsed ? "Show the list of stops" : "Hide the list of stops";
+  };
+  setNav(store.get("ifsdep-nav-collapsed") === true);
+  navToggle.addEventListener("click", () => {
+    const collapsed = !shell.classList.contains("nav-collapsed");
+    setNav(collapsed);
+    store.set("ifsdep-nav-collapsed", collapsed);
+  });
+
   const read = new Set(store.get("ifsdep-guide-read") || []);
   const list = document.getElementById("route-list");
   let group = "";
