@@ -213,7 +213,7 @@ table.cheat th { font: 600 .72rem var(--f-code); letter-spacing: .06em; text-tra
   <div class="eyebrow">ifs-depmap · ifsdep-core 0.2.0 · edition 2021 · std only</div>
   <h1>How the indexer works, one Rust idea at a time</h1>
   <p>This walkthrough covers the whole IFS Dependency Map in the order data moves through it: folders become files, files become parsed records, records become units, objects and edges, those become findings, and findings become JSON that the TypeScript UI draws. Nothing in the pipeline is skipped. Every source file in <code>crates/ifsdep-core/src</code> and <code>src-tauri/src</code> has a stop, and the last stop follows one real finding through all of them. Stop 1 is the map: read it first.</p>
-  <p>Every code block is copied by line number from <a href="https://github.com/phbronson999/ifs-dependency-map">phbronson999/ifs-dependency-map</a> at commit <a href="https://github.com/phbronson999/ifs-dependency-map/tree/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/">56f40b8</a> when the page is built, so what you see is exactly what's in that version of the code. Numbered badges on the code match the notes under it.</p>
+  <p>Every code block is copied by line number from <a href="https://github.com/phbronson999/ifs-dependency-map">phbronson999/ifs-dependency-map</a> at commit <a href="https://github.com/phbronson999/ifs-dependency-map/tree/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/">715ab89</a> when the page is built, so what you see is exactly what's in that version of the code. Numbered badges on the code match the notes under it.</p>
   <p class="how">Click a badge or a note to jump between them. <kbd>J</kbd> and <kbd>K</kbd> move between stops. Pick a concept below to see only the stops that teach it. <em>View on GitHub</em> opens the same lines at that commit. <em>Open in VS Code</em> works on a machine with the project checked out at <code>C:\devstudio</code>.</p>
 
   <div class="flow" aria-label="Pipeline">
@@ -273,13 +273,13 @@ table.cheat th { font: 600 .72rem var(--f-code); letter-spacing: .06em; text-tra
   </div>
   <div class="prose">
     <h3>The pipeline, as it appears in <code>build.rs</code></h3>
-    <p><code>try_index</code> is one long function (lines 80–1062) with numbered comments for its stages. Each stage reads what earlier stages built and adds one layer:</p>
+    <p><code>try_index</code> is one long function (lines 80–1107) with numbered comments for its stages. Each stage reads what earlier stages built and adds one layer:</p>
   </div>
   <div class="cheatwrap"><table class="cheat">
     <thead><tr><th>Stage</th><th>build.rs lines</th><th>Reads</th><th>Produces</th><th>Stop</th></tr></thead>
     <tbody>
       <tr><td>1. Scan and parse</td><td>97–155</td><td>the two folders</td><td><code>idx.files</code>, plus a parallel local <code>parsed: Vec&amp;lt;Parsed&amp;gt;</code></td><td><a class="ref" href="#s-parse"></a></td></tr>
-      <tr><td>2. Group into units</td><td>159–212</td><td>file names, headers</td><td><code>idx.units</code>, and each file's unit and role (base, overlay)</td><td><a class="ref" href="#s-group"></a></td></tr>
+      <tr><td>2. Group into units</td><td>159–212</td><td>file names, headers</td><td><code>idx.units</code>, and each file's unit and role (base, or the Cust file of a Core unit)</td><td><a class="ref" href="#s-group"></a></td></tr>
       <tr><td>3. Objects</td><td>216–350</td><td>parsed declarations, <code>.entity</code> attributes</td><td><code>idx.objects</code>, including generated getters</td><td><a class="ref" href="#s-objects"></a></td></tr>
       <tr><td>4. Unit-level edges</td><td>354–475</td><td>includes, <code>projection X;</code>, package calls</td><td>local <code>edges</code>: include, calls, implements…</td><td><a class="ref" href="#s-edges"></a></td></tr>
       <tr><td>5. Object resolution</td><td>479–976</td><td>unit edges (for reachability) and every queued reference</td><td>overrides, references, invokes, reads, bindings, <code>idx.relations</code></td><td><a class="ref" href="#s-resolve"></a>–<a class="ref" href="#s-dyn"></a></td></tr>
@@ -289,9 +289,9 @@ table.cheat th { font: 600 .72rem var(--f-code); letter-spacing: .06em; text-tra
   </table></div>
   <div class="prose">
     <p>After that, <code>json.rs</code> (<a class="ref" href="#s-json"></a>) turns the <code>Index</code> into one JSON string. The CLI (<a class="ref" href="#s-cli"></a>) prints it or writes it to a file. The Tauri app (<a class="ref" href="#s-tauri"></a>) sends it to the TypeScript UI (<a class="ref" href="#s-ui"></a>), which draws three zoom levels: components, files, objects. The Trace view (<a class="ref" href="#s-trace"></a>) is separate: it reads one PL/SQL method on demand and isn't part of the index.</p>
-    <p>On the synthetic fixtures (<code>fixtures/core</code>, <code>fixtures/cust</code>) one run gives <strong>47 files, 23 units, 83 objects, 123 edges and 18 findings</strong> in about 20 ms. That's the output of <code>cargo run --bin ifsdep -- --core fixtures/core --cust fixtures/cust</code>, and the last stop, <a class="ref" href="#s-example"></a>, follows one of those 18 findings all the way through.</p>
+    <p>On the synthetic fixtures (<code>fixtures/core</code>, <code>fixtures/cust</code>) one run gives <strong>49 files, 25 units, 98 objects, 135 edges and 18 findings</strong> in about 12 ms. That's the output of <code>cargo run --bin ifsdep -- --core fixtures/core --cust fixtures/cust</code>, and the last stop, <a class="ref" href="#s-example"></a>, follows one of those 18 findings all the way through.</p>
   </div>
-  <pre class="code" data-file="crates/ifsdep-core/src/lib.rs" data-start="1" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/lib.rs#L1-L11" data-mark="3:1,8:2,10:3">//! Indexes IFS Cloud Core and Cust source folders into one dependency graph.
+  <pre class="code" data-file="crates/ifsdep-core/src/lib.rs" data-start="1" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/lib.rs#L1-L11" data-mark="3:1,8:2,10:3">//! Indexes IFS Cloud Core and Cust source folders into one dependency graph.
 //!
 //! Pipeline: `scan` walks both roots → per-type parsers (`marble`, `plsql`,
 //! `deployini`) → `build` groups files into logical units, resolves names and
@@ -299,7 +299,7 @@ table.cheat th { font: 600 .72rem var(--f-code); letter-spacing: .06em; text-tra
 //! deploy.ini problems).
 //!
 //! Layer is decided by which root a file lives in. A `-Cust` file whose
-//! logical name also exists in Core is an *overlay*; one with no Core match is
+//! logical name also exists in Core joins that Core unit; one with no Core match is
 //! a *pure Cust base*. `@Override` resolves to whichever base exists, Core or
 //! pure Cust.</pre>
   <ol class="co">
@@ -316,14 +316,14 @@ table.cheat th { font: 600 .72rem var(--f-code); letter-spacing: .06em; text-tra
   <div class="prose">
     <p>Cargo has three nested ideas: a <strong>workspace</strong> groups packages that share one <code>Cargo.lock</code> and one <code>target/</code>. A <strong>package</strong> is a directory with a <code>Cargo.toml</code>. A <strong>crate</strong> is a single compilation unit, either a library or a binary. One package can hold one library crate and several binary crates. That's exactly the layout here.</p>
   </div>
-  <pre class="code" data-file="Cargo.toml" data-start="1" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/Cargo.toml#L1-L5" data-mark="3:1,5:2">[workspace]
+  <pre class="code" data-file="Cargo.toml" data-start="1" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/Cargo.toml#L1-L5" data-mark="3:1,5:2">[workspace]
 resolver = "2"
 members = ["crates/ifsdep-core"]
 # The Tauri shell is built separately (it needs the platform webview toolchain).
 exclude = ["src-tauri"]</pre>
-  <pre class="code" data-file="crates/ifsdep-core/Cargo.toml" data-start="1" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/Cargo.toml#L1-L17" data-mark="4:3,11:4,13:5,17:6">[package]
+  <pre class="code" data-file="crates/ifsdep-core/Cargo.toml" data-start="1" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/Cargo.toml#L1-L21" data-mark="4:3,11:4,13:5,21:6">[package]
 name = "ifsdep-core"
-version = "0.2.0"
+version = "0.4.0"
 edition = "2021"
 description = "Indexes IFS Cloud Core + Cust source folders into a dependency graph and flags problems"
 
@@ -337,6 +337,10 @@ name = "ifsdep_core"
 name = "ifsdep"
 path = "src/bin/ifsdep.rs"
 
+[[bin]]
+name = "ifsdep-ai"
+path = "src/bin/ifsdep-ai.rs"
+
 [dependencies]</pre>
   <ol class="co">
     <li data-n="1"><div>The workspace has one member. Running <code>cargo test</code> from the repo root tests <code>ifsdep-core</code> only.</div></li>
@@ -346,7 +350,7 @@ path = "src/bin/ifsdep.rs"
     <li data-n="5"><div>A second crate in the same package: the <code>ifsdep</code> CLI. It's compiled as its own crate that <em>depends on</em> the library, so it can only see items marked <code>pub</code>. That's why <a class="ref" href="#s-cli"></a>'s <code>main</code> writes <code>use ifsdep_core::{index, IndexOptions, Severity}</code> like any outside user would.</div></li>
     <li data-n="6"><div>No dependencies. The JSON writer (<a class="ref" href="#s-analyze"></a>), the folder walk (<a class="ref" href="#s-scan"></a>) and cycle detection (<a class="ref" href="#s-graph"></a>) are all written by hand. That's good for learning: there's no serde or walkdir doing the interesting parts out of sight.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/lib.rs" data-start="13" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/lib.rs#L13-L31" data-mark="13:7,30:8,31:9">pub mod analyze;
+  <pre class="code" data-file="crates/ifsdep-core/src/lib.rs" data-start="14" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/lib.rs#L14-L32" data-mark="14:7,31:8,32:9">pub mod analyze;
 pub mod build;
 pub mod datatypes;
 pub mod db;
@@ -379,12 +383,12 @@ pub use model::*;</pre>
   <div class="prose">
     <p><code>model.rs</code> is the vocabulary of the whole program: plain data types with no behavior beyond a few helpers. Read it first in any Rust codebase. The types tell you what the program believes about the world.</p>
   </div>
-  <pre class="code" data-file="crates/ifsdep-core/src/model.rs" data-start="4" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/model.rs#L4-L8" data-mark="4:1">#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+  <pre class="code" data-file="crates/ifsdep-core/src/model.rs" data-start="4" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/model.rs#L4-L8" data-mark="4:1">#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Layer {
     Core,
     Cust,
 }</pre>
-  <pre class="code" data-file="crates/ifsdep-core/src/model.rs" data-start="28" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/model.rs#L28-L51" data-mark="29:2,30:3,34:4,49:5">impl FileKind {
+  <pre class="code" data-file="crates/ifsdep-core/src/model.rs" data-start="28" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/model.rs#L28-L51" data-mark="29:2,30:3,34:4,49:5">impl FileKind {
     pub fn from_path(p: &amp;Path) -&gt; Option&lt;Self&gt; {
         let name = p.file_name()?.to_str()?.to_ascii_lowercase();
         if name == "deploy.ini" {
@@ -419,7 +423,7 @@ pub enum Layer {
     <li data-n="4"><div>You can't <code>match</code> a <code>String</code> against string literals directly, because the literals are <code>&amp;amp;str</code>. <code>.as_str()</code> borrows the <code>String</code> as a <code>&amp;amp;str</code>. The temporary <code>String</code> made by <code>to_ascii_lowercase()</code> lives until the end of the <code>match</code> statement, which is long enough.</div></li>
     <li data-n="5"><div><code>matches!</code> is a macro that expands to a <code>match</code> returning <code>true</code>/<code>false</code>. Methods take <code>self</code> by value here. That's cheap and idiomatic because <code>FileKind</code> is <code>Copy</code>.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/model.rs" data-start="93" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/model.rs#L93-L103" data-mark="101:6">#[derive(Debug, Clone)]
+  <pre class="code" data-file="crates/ifsdep-core/src/model.rs" data-start="93" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/model.rs#L93-L103" data-mark="101:6">#[derive(Debug, Clone)]
 pub struct Unit {
     pub id: String,
     pub kind: UnitKind,
@@ -430,7 +434,7 @@ pub struct Unit {
     pub files: Vec&lt;usize&gt;,
     pub has_overlay: bool,
 }</pre>
-  <pre class="code" data-file="crates/ifsdep-core/src/model.rs" data-start="328" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/model.rs#L328-L350" data-mark="328:7,344:8,348:9,349:10">#[derive(Debug, Clone, Default)]
+  <pre class="code" data-file="crates/ifsdep-core/src/model.rs" data-start="328" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/model.rs#L328-L350" data-mark="328:7,344:8,348:9,349:10">#[derive(Debug, Clone, Default)]
 pub struct Index {
     pub version: u32,
     pub core_root: Option&lt;String&gt;,
@@ -472,7 +476,7 @@ pub fn id_index(id: &amp;str) -&gt; usize {
   <div class="stop-head"><span class="num"></span><h2>Walking folders: owned vs borrowed paths</h2></div>
   <div class="files">crates/ifsdep-core/src/scan.rs</div>
   <div class="prose"><p>A complete function in 50 lines, using about a dozen everyday Rust idioms. It walks a directory tree without recursion and returns what it found plus notes about what it skipped.</p></div>
-  <pre class="code" data-file="crates/ifsdep-core/src/scan.rs" data-start="15" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/scan.rs#L15-L66" data-mark="17:1,20:2,21:3,22:4,29:5,30:6,32:7,43:8,44:9,55:10,56:11,64:12">/// Walks one root (without following symlinks) and returns every file type
+  <pre class="code" data-file="crates/ifsdep-core/src/scan.rs" data-start="15" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/scan.rs#L15-L66" data-mark="17:1,20:2,21:3,22:4,29:5,30:6,32:7,43:8,44:9,55:10,56:11,64:12">/// Walks one root (without following symlinks) and returns every file type
 /// the indexer understands.
 pub fn scan_root(root: &amp;Path) -&gt; (Vec&lt;Scanned&gt;, Vec&lt;String&gt;) {
     let mut out = Vec::new();
@@ -545,7 +549,7 @@ pub fn scan_root(root: &amp;Path) -&gt; (Vec&lt;Scanned&gt;, Vec&lt;String&gt;) 
   <div class="stop-head"><span class="num"></span><h2>A tiny parser: deploy.ini</h2></div>
   <div class="files">crates/ifsdep-core/src/deployini.rs</div>
   <div class="prose"><p>The smallest parser, and the template for the rest: take <code>&amp;amp;str</code>, walk lines, return a plain struct. Nothing in it allocates more than the values it keeps.</p></div>
-  <pre class="code" data-file="crates/ifsdep-core/src/deployini.rs" data-start="1" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/deployini.rs#L1-L39" data-mark="8:1,11:2,14:3,15:4,20:5,23:6,25:7,26:8,33:9">/// The parts of deploy.ini the dependency analysis needs.
+  <pre class="code" data-file="crates/ifsdep-core/src/deployini.rs" data-start="1" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/deployini.rs#L1-L39" data-mark="8:1,11:2,14:3,15:4,20:5,23:6,25:7,26:8,33:9">/// The parts of deploy.ini the dependency analysis needs.
 #[derive(Debug, Default)]
 pub struct DeployIni {
     pub component: Option&lt;String&gt;,
@@ -595,7 +599,7 @@ pub fn parse(text: &amp;str) -&gt; DeployIni {
     <li data-n="8"><div>…with <strong>match guards</strong>: <code>"component" if …</code>. If the guard is false, matching falls through to the next arm, ending at <code>_ =&amp;gt; {}</code>.</div></li>
     <li data-n="9"><div>Line numbers are 1-based for people. <code>enumerate</code> is 0-based, hence <code>i + 1</code>, a pattern repeated in every parser.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/deployini.rs" data-start="41" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/deployini.rs#L41-L50" data-mark="41:10,44:11,46:12">#[cfg(test)]
+  <pre class="code" data-file="crates/ifsdep-core/src/deployini.rs" data-start="41" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/deployini.rs#L41-L50" data-mark="41:10,44:11,46:12">#[cfg(test)]
 mod tests {
     #[test]
     fn reads_connections() {
@@ -617,13 +621,16 @@ mod tests {
   <div class="stop-head"><span class="num"></span><h2>Marble parser: slices, elision, the borrow checker</h2></div>
   <div class="files">crates/ifsdep-core/src/marble.rs</div>
   <div class="prose"><p>The parser for <code>.client</code>, <code>.projection</code> and <code>.fragment</code> files tracks brace depth line by line. Three things in it are worth studying closely: functions that return slices of their input, <code>Option::take</code> as a "consume once" flag, and a spot where the code is ordered to satisfy the borrow checker.</p></div>
-  <pre class="code" data-file="crates/ifsdep-core/src/marble.rs" data-start="66" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/marble.rs#L66-L82" data-mark="66:1,78:2">pub const PROJECTION_KWS: &amp;[&amp;str] = &amp;[
+  <pre class="code" data-file="crates/ifsdep-core/src/marble.rs" data-start="71" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/marble.rs#L71-L90" data-mark="71:1,86:2">pub const PROJECTION_KWS: &amp;[&amp;str] = &amp;[
     "entityset", "entity", "query", "virtual", "structure", "enumeration", "summary", "singleton",
     "action", "function",
 ];
 pub const CLIENT_KWS: &amp;[&amp;str] = &amp;[
     "page", "list", "group", "dialog", "command", "selector", "assistant", "navigator", "card",
     "tree", "chart", "calendar", "sheet", "tabs", "singleton",
+    // These hold `call`s too (about 1,800 lines in 25R1), which were dropped while unparsed.
+    "workflow", "fieldset", "initcontext", "searchcontext", "ganttchart", "ganttchartitem",
+    "kanbanboard", "stackedcalendar",
 ];
 
 /// Declarations whose body can hold bound actions and functions.
@@ -638,7 +645,7 @@ struct Pending {
     <li data-n="1"><div>A constant slice of string literals. Its full type is <code>&amp;amp;'static [&amp;amp;'static str]</code>. In <code>const</code>/<code>static</code> items the <code>'static</code> is implied. Literals are baked into the binary, so they live for the whole program.</div></li>
     <li data-n="2"><div>A private helper struct that holds annotations seen on a line until the declaration they belong to shows up.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/marble.rs" data-start="116" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/marble.rs#L116-L130" data-mark="117:3,118:4,120:5,129:6">        // Leading annotations, possibly on their own line.
+  <pre class="code" data-file="crates/ifsdep-core/src/marble.rs" data-start="124" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/marble.rs#L124-L138" data-mark="125:3,126:4,128:5,137:6">        // Leading annotations, possibly on their own line.
         while let Some(stripped) = rest.strip_prefix('@') {
             let (name, after) = split_word(stripped);
             match name {
@@ -659,14 +666,14 @@ struct Pending {
     <li data-n="5"><div>Or-patterns in a match arm: <code>"Override" | "Overtake"</code>. <code>to_string()</code> allocates because <code>Pending</code> owns its data.</div></li>
     <li data-n="6"><div>Reassigning the slice to move forward through the text. This is "parsing by narrowing a <code>&amp;amp;str</code>", and nothing is copied.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/marble.rs" data-start="296" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/marble.rs#L296-L302" data-mark="296:7">fn split_word(s: &amp;str) -&gt; (&amp;str, &amp;str) {
+  <pre class="code" data-file="crates/ifsdep-core/src/marble.rs" data-start="310" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/marble.rs#L310-L316" data-mark="310:7">fn split_word(s: &amp;str) -&gt; (&amp;str, &amp;str) {
     let s = s.trim_start();
     match s.find(char::is_whitespace) {
         Some(i) =&gt; (&amp;s[..i], s[i..].trim_start()),
         None =&gt; (s, ""),
     }
 }</pre>
-  <pre class="code" data-file="crates/ifsdep-core/src/marble.rs" data-start="343" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/marble.rs#L343-L359" data-mark="344:8,351:9">/// Removes a trailing `-- comment` or `// comment`, ignoring them inside double-quoted strings.
+  <pre class="code" data-file="crates/ifsdep-core/src/marble.rs" data-start="357" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/marble.rs#L357-L373" data-mark="358:8,365:9">/// Removes a trailing `-- comment` or `// comment`, ignoring them inside double-quoted strings.
 pub fn strip_comment(line: &amp;str) -&gt; &amp;str {
     let bytes = line.as_bytes();
     let mut in_str = false;
@@ -688,7 +695,7 @@ pub fn strip_comment(line: &amp;str) -&gt; &amp;str {
     <li data-n="8"><div>Same rule: the output <code>&amp;amp;str</code> borrows <code>line</code>. "Strip the comment" means "return a shorter view", with no new <code>String</code>.</div></li>
     <li data-n="9"><div>Scanning <code>as_bytes()</code> with byte literals (<code>b'-'</code> is a <code>u8</code>). Slicing <code>&amp;amp;line[..i]</code> at a byte index is only valid on a UTF-8 character boundary. It's safe here because <code>i</code> sits on an ASCII <code>-</code> or <code>/</code>, and ASCII bytes never occur inside a multi-byte character.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/marble.rs" data-start="197" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/marble.rs#L197-L232" data-mark="202:10,213:11,216:12,219:13,224:14">        } else if let Some(ci) = current {
+  <pre class="code" data-file="crates/ifsdep-core/src/marble.rs" data-start="207" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/marble.rs#L207-L244" data-mark="212:10,225:11,228:12,231:13,236:14">        } else if let Some(ci) = current {
             let first = words.first().map(|w| w.to_ascii_lowercase()).unwrap_or_default();
             // Bound actions and functions, declared inside an entity's body. They are scoped
             // to that entity, which becomes their target. Inside an `@Override entity` they
@@ -700,11 +707,13 @@ pub fn strip_comment(line: &amp;str) -&gt; &amp;str {
                 &amp;&amp; parent.section == Section::Projection
             {
                 if let Some(name) = words.get(1) {
+                    let own = pending.modifier.take();
                     let decl = Decl {
                         kind: first.clone(),
                         name: name.clone(),
                         line: line_no,
-                        modifier: pending.modifier.take().or_else(|| parent.modifier.clone()),
+                        inherited: own.is_none() &amp;&amp; parent.modifier.is_some(),
+                        modifier: own.or_else(|| parent.modifier.clone()),
                         section: Section::Projection,
                         target: Some(parent.name.clone()),
                         dynamic: pending.dynamic.take().or_else(|| parent.dynamic.clone()),
@@ -726,7 +735,7 @@ pub fn strip_comment(line: &amp;str) -&gt; &amp;str {
             }</pre>
   <ol class="co">
     <li data-n="10"><div><code>parent</code> is a shared borrow of an element of <code>out.decls</code>…</div></li>
-    <li data-n="11"><div><code>pending.modifier.take()</code> moves the value out and leaves <code>None</code> behind, so an annotation is used at most once. <code>.or_else(|| parent.modifier.clone())</code> falls back to the parent's annotation, and the closure runs only when needed.</div></li>
+    <li data-n="11"><div><code>pending.modifier.take()</code> moves the value out and leaves <code>None</code> behind, so an annotation is used at most once. <code>own.or_else(|| parent.modifier.clone())</code> falls back to the parent's annotation, and the closure runs only when needed. The line above it keeps a note, <code>inherited</code>, of when the annotation came from the parent: an action bound inside an <code>@Override entity</code> isn't always an override itself (<a class="ref" href="#s-overrides"></a>).</div></li>
     <li data-n="12"><div>Every use of <code>parent</code> happens while building <code>decl</code>…</div></li>
     <li data-n="13"><div>…so by the time <code>out.decls.push(decl)</code> needs a <em>mutable</em> borrow, the shared borrow is already over. This is <strong>non-lexical lifetimes</strong> (NLL): a borrow lasts until its last use, not until the end of the block. Building <code>decl</code> in a variable first is what makes this compile.</div></li>
     <li data-n="14"><div>A fresh mutable borrow through the index, <code>out.decls[ci]</code>. Holding the index <code>ci</code> instead of a reference lets the code borrow again whenever it needs to.</div></li>
@@ -740,7 +749,7 @@ println!("{}", parent.name);   // uses parent after the push
 // error[E0502]: cannot borrow `decls` as mutable because it is also borrowed as immutable</pre>
     <p>The reason is that <code>push</code> may reallocate the vector and move every element, which would leave <code>parent</code> dangling. Delete the last line and it compiles.</p>
   </div>
-  <pre class="code" data-file="crates/ifsdep-core/src/marble.rs" data-start="374" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/marble.rs#L374-L389" data-mark="383:15">/// Splits on whitespace and punctuation; quoted strings collapse into one token.
+  <pre class="code" data-file="crates/ifsdep-core/src/marble.rs" data-start="388" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/marble.rs#L388-L403" data-mark="397:15">/// Splits on whitespace and punctuation; quoted strings collapse into one token.
 fn tokens(s: &amp;str) -&gt; Vec&lt;String&gt; {
     let mut out = Vec::new();
     let mut cur = String::new();
@@ -765,7 +774,7 @@ fn tokens(s: &amp;str) -&gt; Vec&lt;String&gt; {
 <section class="stop" id="s-plsql" data-title="PL/SQL scanner: 'static, state machines, stacks" data-group="Parsers" data-c="life str opt iter mod pat">
   <div class="stop-head"><span class="num"></span><h2>PL/SQL scanner: <code>'static</code>, state machines, stacks</h2></div>
   <div class="files">crates/ifsdep-core/src/plsql.rs</div>
-  <pre class="code" data-file="crates/ifsdep-core/src/plsql.rs" data-start="10" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/plsql.rs#L10-L17" data-mark="12:1">#[derive(Debug, Clone)]
+  <pre class="code" data-file="crates/ifsdep-core/src/plsql.rs" data-start="10" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/plsql.rs#L10-L17" data-mark="12:1">#[derive(Debug, Clone)]
 pub struct Method {
     pub kind: &amp;'static str,
     pub name: String,
@@ -776,7 +785,7 @@ pub struct Method {
   <ol class="co">
     <li data-n="1"><div><code>kind: &amp;amp;'static str</code> stores a reference in a struct <em>without</em> giving the struct a lifetime parameter. It works because the only values ever stored are literals (<code>"procedure"</code>, <code>"function"</code>), which live forever. Compare <code>name: String</code>: it comes from file text, so it has to be owned.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/plsql.rs" data-start="47" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/plsql.rs#L47-L80" data-mark="47:2,52:3,53:4,62:5,63:6,79:7">pub(crate) fn is_ident(c: char) -&gt; bool {
+  <pre class="code" data-file="crates/ifsdep-core/src/plsql.rs" data-start="47" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/plsql.rs#L47-L80" data-mark="47:2,52:3,53:4,62:5,63:6,79:7">pub(crate) fn is_ident(c: char) -&gt; bool {
     c.is_ascii_alphanumeric() || c == '_' || c == '$' || c == '#'
 }
 
@@ -818,11 +827,18 @@ fn decl_at_col0(line: &amp;str) -&gt; Option&lt;(&amp;'static str, &amp;str)&gt;
     <li data-n="6"><div><code>?</code> on <code>Option</code> inside a function that returns <code>Option</code>: an empty line exits immediately.</div></li>
     <li data-n="7"><div>Returning the borrowed <code>name</code> without copying it. The caller (<a class="ref" href="#s-parse"></a>) decides whether to copy it with <code>name.to_string()</code>.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/plsql.rs" data-start="176" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/plsql.rs#L176-L236" data-mark="179:8,188:9,200:10,201:11,209:12,221:13,234:14">    let cleaned = blank_comments_and_strings(text);
+  <pre class="code" data-file="crates/ifsdep-core/src/plsql.rs" data-start="202" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/plsql.rs#L202-L286" data-mark="205:8,221:9,233:10,234:11,242:12,271:13,284:14">    let cleaned = blank_comments_and_strings(text);
     let mut pending_modifier: Option&lt;String&gt; = None;
     let mut pending_dynamic: Option&lt;String&gt; = None;
     let mut guards: Vec&lt;Option&lt;String&gt;&gt; = Vec::new();
     let mut current: Option&lt;usize&gt; = None;
+    // Cursors in scope, upper-cased: the package's own and the current method's. A cursor
+    // named like a method of the package (`CURSOR release_order` beside `Release_Order`)
+    // isn't a call to it. In the method that declares it the cursor hides the method, so the
+    // name is never a call there. A package-level cursor can share its name with a procedure,
+    // so there only its uses as a cursor (`FOR r IN c(x)`, `CURRENT OF c`) are skipped.
+    let mut package_cursors: HashSet&lt;String&gt; = HashSet::new();
+    let mut method_cursors: HashSet&lt;String&gt; = HashSet::new();
 
     for (i, line) in cleaned.lines().enumerate() {
         let line_no = i + 1;
@@ -855,9 +871,26 @@ fn decl_at_col0(line: &amp;str) -&gt; Option&lt;(&amp;'static str, &amp;str)&gt;
                 dynamic: pending_dynamic.take(),
             });
             current = Some(out.methods.len() - 1);
+            method_cursors.clear();
             continue;
         }
+        let mut declared = String::new();
+        if let Some(rest) = tl.strip_prefix("cursor ") {
+            let (name, _) = ident_at(rest.trim_start(), 0);
+            declared = name.to_ascii_uppercase();
+            if !declared.is_empty() {
+                let scope = if current.is_some() { &amp;mut method_cursors } else { &amp;mut package_cursors };
+                scope.insert(declared.clone());
+            }
+        }
         for name in local_calls_in(line) {
+            let up = name.to_ascii_uppercase();
+            if up == declared
+                || method_cursors.contains(&amp;up)
+                || package_cursors.contains(&amp;up) &amp;&amp; matches!(word_before(line, &amp;name).as_str(), "IN" | "OF")
+            {
+                continue;
+            }
             out.calls.push(Call {
                 package: String::new(),
                 method: name,
@@ -888,7 +921,7 @@ fn decl_at_col0(line: &amp;str) -&gt; Option&lt;(&amp;'static str, &amp;str)&gt;
     <li data-n="13"><div><code>guards.iter().rev().find_map(|g| g.clone())</code> finds the innermost real guard. <code>find_map</code> is "map, then return the first <code>Some</code>". The <code>clone</code> is needed because <code>Call</code> owns its <code>guard</code>.</div></li>
     <li data-n="14"><div>Popping on <code>$END</code> <em>after</em> the line's calls are recorded, so calls on the <code>$END</code> line still count as inside the block.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/plsql.rs" data-start="433" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/plsql.rs#L433-L466" data-mark="434:15,441:16,448:17">fn blank(text: &amp;str, keep_strings: bool) -&gt; String {
+  <pre class="code" data-file="crates/ifsdep-core/src/plsql.rs" data-start="483" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/plsql.rs#L483-L516" data-mark="484:15,491:16,498:17">fn blank(text: &amp;str, keep_strings: bool) -&gt; String {
     #[derive(PartialEq)]
     enum S {
         Code,
@@ -934,7 +967,7 @@ fn decl_at_col0(line: &amp;str) -&gt; Option&lt;(&amp;'static str, &amp;str)&gt;
   <div class="stop-head"><span class="num"></span><h2>Views and tables: <code>db.rs</code></h2></div>
   <div class="files">crates/ifsdep-core/src/db.rs · feeds stage 5 (relations, columns) and the column and datatype rules</div>
   <div class="prose"><p><code>.views</code> and <code>.storage</code> files hold IFS's own SQL-like statements: <code>VIEW x IS SELECT …;</code> and <code>TABLE x IS ( … );</code>. A statement can span many lines, so the parser keeps a little state across lines, then runs the SQL helpers from <a class="ref" href="#s-sqlscope"></a> over each view's text.</p></div>
-  <pre class="code" data-file="crates/ifsdep-core/src/db.rs" data-start="6" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/db.rs#L6-L43" data-mark="18:1,20:2,22:3,33:4,42:5">#[derive(Debug, Clone)]
+  <pre class="code" data-file="crates/ifsdep-core/src/db.rs" data-start="6" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/db.rs#L6-L43" data-mark="18:1,20:2,22:3,33:4,42:5">#[derive(Debug, Clone)]
 pub struct ViewDef {
     /// Upper-cased, as Oracle stores it.
     pub name: String,
@@ -979,7 +1012,7 @@ pub struct TableDef {
     <li data-n="4"><div><code>PartialEq</code> is derived only where the tests compare whole values with <code>assert_eq!</code>.</div></li>
     <li data-n="5"><div>A <code>Vec</code> of <code>(column, type)</code> pairs rather than a map: the order of the definition is kept, and lookups are rare and small.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/db.rs" data-start="48" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/db.rs#L48-L118" data-mark="52:6,53:7,59:8,77:9,78:10,83:11,98:12,116:13">pub fn parse(text: &amp;str) -&gt; ParsedDb {
+  <pre class="code" data-file="crates/ifsdep-core/src/db.rs" data-start="48" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/db.rs#L48-L118" data-mark="52:6,53:7,59:8,77:9,78:10,83:11,98:12,116:13">pub fn parse(text: &amp;str) -&gt; ParsedDb {
     let mut out = ParsedDb::default();
     let cleaned = plsql::blank_comments_and_strings(text);
     // (view index, first line, last line) for each VIEW statement.
@@ -1060,7 +1093,7 @@ pub struct TableDef {
     <li data-n="12"><div><code>pending.take()</code> again: an <code>@Override</code> applies to the next VIEW only.</div></li>
     <li data-n="13"><div>After the loop: a view with no closing <code>;</code> runs to the end of the file (<code>usize::MAX</code>, capped later with <code>.min(tlines.len())</code>).</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/db.rs" data-start="152" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/db.rs#L152-L188" data-mark="154:14,156:15,160:16,163:17,173:18,182:19">    // A view's columns: what its select list produces.
+  <pre class="code" data-file="crates/ifsdep-core/src/db.rs" data-start="152" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/db.rs#L152-L188" data-mark="154:14,156:15,160:16,163:17,173:18,182:19">    // A view's columns: what its select list produces.
     let tlines: Vec&lt;&amp;str&gt; = text.lines().collect();
     for &amp;(vi, first, last) in &amp;spans {
         let end = last.min(tlines.len());
@@ -1105,7 +1138,7 @@ pub struct TableDef {
     <li data-n="18"><div>A closure with a double-reference pattern, <code>|&amp;amp;&amp;amp;(_, a, b)|</code>. <code>spans.iter()</code> yields <code>&amp;amp;T</code>, and <code>find</code> passes <code>&amp;amp;&amp;amp;T</code> to its predicate. Each <code>&amp;amp;</code> in the pattern peels off one layer.</div></li>
     <li data-n="19"><div>let-else with a closure call: lines outside any view are skipped.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/db.rs" data-start="194" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/db.rs#L194-L202" data-mark="198:20">fn created_tables(text: &amp;str) -&gt; Vec&lt;TableDef&gt; {
+  <pre class="code" data-file="crates/ifsdep-core/src/db.rs" data-start="194" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/db.rs#L194-L202" data-mark="198:20">fn created_tables(text: &amp;str) -&gt; Vec&lt;TableDef&gt; {
     let upper = blank_comments(text).to_ascii_uppercase();
     let lines: Vec&lt;&amp;str&gt; = upper.lines().collect();
     let mut out: Vec&lt;TableDef&gt; = Vec::new();
@@ -1114,7 +1147,7 @@ pub struct TableDef {
             out.push(TableDef { name, line, temporary, columns, types });
         }
     };</pre>
-  <pre class="code" data-file="crates/ifsdep-core/src/db.rs" data-start="293" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/db.rs#L293-L299" data-mark="298:21">/// `  'X_TAB' ...` → `X_TAB`, when the quoted text is a plain name.
+  <pre class="code" data-file="crates/ifsdep-core/src/db.rs" data-start="293" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/db.rs#L293-L299" data-mark="298:21">/// `  'X_TAB' ...` → `X_TAB`, when the quoted text is a plain name.
 fn quoted_name(s: &amp;str) -&gt; Option&lt;String&gt; {
     let s = s.trim_start().strip_prefix('\'')?;
     let end = s.find('\'')?;
@@ -1132,7 +1165,7 @@ fn quoted_name(s: &amp;str) -&gt; Option&lt;String&gt; {
   <div class="stop-head"><span class="num"></span><h2>The <code>.entity</code> reader: XML without a crate</h2></div>
   <div class="files">crates/ifsdep-core/src/entity.rs · feeds generated getters (stage 3), generated view and table (stage 5), DATATYPE_MISMATCH, ENTITY_CHANGED</div>
   <div class="prose"><p>An <code>.entity</code> file is element-only XML. IFS generates the LU's view (<code>SHOP_ORDER</code>), table (<code>SHOP_ORDER_TAB</code>) and getter functions from it, so the tool needs the LU name, any renames, and the attributes. Instead of an XML library, the reader keeps a stack of open element names and acts on the path.</p></div>
-  <pre class="code" data-file="crates/ifsdep-core/src/entity.rs" data-start="83" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/entity.rs#L83-L131" data-mark="85:1,89:2,92:3,93:4,100:5,106:6,110:7,111:8,125:9,129:10">pub fn parse(text: &amp;str) -&gt; ParsedEntity {
+  <pre class="code" data-file="crates/ifsdep-core/src/entity.rs" data-start="85" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/entity.rs#L85-L133" data-mark="87:1,91:2,94:3,95:4,102:5,108:6,112:7,113:8,127:9,131:10">pub fn parse(text: &amp;str) -&gt; ParsedEntity {
     let mut out = ParsedEntity::default();
     let mut path: Vec&lt;&amp;str&gt; = Vec::new();
     let mut line = 1;
@@ -1193,7 +1226,7 @@ fn quoted_name(s: &amp;str) -&gt; Option&lt;String&gt; {
     <li data-n="9"><div>Text is kept only when the next tag is a closing one (<code>&amp;lt;/</code>). <code>b.get(end + 1)</code> on the byte slice returns <code>None</code> at the end instead of panicking.</div></li>
     <li data-n="10"><div><code>path.join("/")</code> builds a key like <code>ENTITY/ATTRIBUTES/ATTRIBUTE/NAME</code> for the big match below.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/entity.rs" data-start="130" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/entity.rs#L130-L145" data-mark="131:11,135:12">        match joined.as_str() {
+  <pre class="code" data-file="crates/ifsdep-core/src/entity.rs" data-start="132" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/entity.rs#L132-L147" data-mark="133:11,137:12">        match joined.as_str() {
             "ENTITY/NAME" =&gt; out.name = Some((value, line)),
             "ENTITY/COMPONENT" =&gt; out.component = Some(value.to_ascii_uppercase()),
             "ENTITY/LAYER" =&gt; out.layer = Some(value),
@@ -1209,7 +1242,7 @@ fn quoted_name(s: &amp;str) -&gt; Option&lt;String&gt; {
                 }
             }
             "ENTITY/ATTRIBUTES/ATTRIBUTE/DATATYPE" =&gt; {</pre>
-  <pre class="code" data-file="crates/ifsdep-core/src/entity.rs" data-start="192" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/entity.rs#L192-L209" data-mark="192:13,194:14,201:15">            p if p.starts_with(ATTRIBUTE_CODEGEN) =&gt; {
+  <pre class="code" data-file="crates/ifsdep-core/src/entity.rs" data-start="199" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/entity.rs#L199-L216" data-mark="199:13,201:14,208:15">            p if p.starts_with(ATTRIBUTE_CODEGEN) =&gt; {
                 if let Some(a) = out.attributes.last_mut() {
                     match &amp;p[ATTRIBUTE_CODEGEN.len()..] {
                         "DB_SQL_IMPLEMENTATION" =&gt; a.implementation = Some(unescape(&amp;value)),
@@ -1241,7 +1274,7 @@ fn quoted_name(s: &amp;str) -&gt; Option&lt;String&gt; {
   <div class="stop-head"><span class="num"></span><h2>SQL query blocks: <code>sqlscope.rs</code></h2></div>
   <div class="files">crates/ifsdep-core/src/sqlscope.rs · used by db.rs, COLUMN_AMBIGUOUS, DATATYPE_MISMATCH, upgrade</div>
   <div class="prose"><p>To know whether an unprefixed column like <code>priority</code> is ambiguous, you have to know which SELECT it belongs to and what that SELECT's FROM reads. <code>blocks()</code> splits SQL into one <code>Block</code> per SELECT, so subqueries and UNION branches each get their own.</p></div>
-  <pre class="code" data-file="crates/ifsdep-core/src/sqlscope.rs" data-start="6" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/sqlscope.rs#L6-L21" data-mark="9:1,20:2">#[derive(Debug, Clone, PartialEq)]
+  <pre class="code" data-file="crates/ifsdep-core/src/sqlscope.rs" data-start="6" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/sqlscope.rs#L6-L21" data-mark="9:1,20:2">#[derive(Debug, Clone, PartialEq)]
 pub struct FromItem {
     /// Upper-cased relation name; empty for a subquery or `TABLE(...)` in the FROM.
     pub name: String,
@@ -1261,7 +1294,7 @@ pub struct Block {
     <li data-n="1"><div>An empty <code>name</code> stands for "a subquery in the FROM". An <code>Option&amp;lt;String&amp;gt;</code> would say it more strongly; the empty string keeps comparisons simple.</div></li>
     <li data-n="2"><div>The doc comment admits the list over-collects ("includes some that are not columns"), and callers filter it. Saying so in the doc is a good habit.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/sqlscope.rs" data-start="72" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/sqlscope.rs#L72-L97" data-mark="73:3,78:4,86:5">#[derive(Debug, Clone, Copy, PartialEq)]
+  <pre class="code" data-file="crates/ifsdep-core/src/sqlscope.rs" data-start="72" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/sqlscope.rs#L72-L97" data-mark="73:3,78:4,86:5">#[derive(Debug, Clone, Copy, PartialEq)]
 enum Tok&lt;'a&gt; {
     Name(&amp;'a str),
     Punct(char),
@@ -1292,7 +1325,7 @@ fn tokens(cleaned: &amp;str) -&gt; Vec&lt;(Tok&lt;'_&gt;, usize)&gt; {
     <li data-n="4"><div><code>Tok&amp;lt;'_&amp;gt;</code> is the <strong>anonymous lifetime</strong>: elided as usual (here it's <code>cleaned</code>'s), but written so readers can see a borrow is hiding in the type. Leaving it out is allowed, but the <code>elided_lifetimes_in_paths</code> lint (part of the opt-in <code>rust_2018_idioms</code> group) flags it. The token list can't outlive the text.</div></li>
     <li data-n="5"><div>Each token is a slice of its line. Tokenizing allocates only the outer <code>Vec</code>.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/sqlscope.rs" data-start="118" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/sqlscope.rs#L118-L149" data-mark="118:6,126:7,144:8,145:9,147:10">#[derive(Debug, Clone, Copy, PartialEq)]
+  <pre class="code" data-file="crates/ifsdep-core/src/sqlscope.rs" data-start="118" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/sqlscope.rs#L118-L149" data-mark="118:6,126:7,144:8,145:9,147:10">#[derive(Debug, Clone, Copy, PartialEq)]
 enum State {
     List,  // the select list
     Into,  // SELECT ... INTO vars
@@ -1331,7 +1364,7 @@ pub fn blocks(cleaned: &amp;str) -&gt; Vec&lt;Block&gt; {
     <li data-n="9"><div><code>stack.pop().unwrap()</code> gives an owned <code>Open</code>…</div></li>
     <li data-n="10"><div>…and <code>let mut b = o.block;</code> moves the block out of it (a partial move). <code>retain</code> then drops refs that are really select-list aliases, while <code>o.aliases</code> is still readable.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/sqlscope.rs" data-start="203" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/sqlscope.rs#L203-L224" data-mark="203:11,205:12,206:13,207:14,211:15,213:16,221:17">                let Some(o) = stack.last_mut() else { continue };
+  <pre class="code" data-file="crates/ifsdep-core/src/sqlscope.rs" data-start="203" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/sqlscope.rs#L203-L224" data-mark="203:11,205:12,206:13,207:14,211:15,213:16,221:17">                let Some(o) = stack.last_mut() else { continue };
                 let own = o.depth == depth;
                 if own &amp;&amp; matches!(u.as_str(), "UNION" | "MINUS" | "INTERSECT" | "EXCEPT") {
                     sibling = Some((depth, o.aliases.clone()));
@@ -1369,7 +1402,7 @@ pub fn blocks(cleaned: &amp;str) -&gt; Vec&lt;Block&gt; {
   <div class="stop-head"><span class="num"></span><h2>IndexOptions: a struct that borrows</h2></div>
   <div class="files">crates/ifsdep-core/src/build.rs</div>
   <div class="prose"><p>This is the entry point. <code>IndexOptions</code> is the one public struct with a lifetime parameter, and the way it's used shows how lifetimes, trait objects and error types fit together.</p></div>
-  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="17" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/build.rs#L17-L33" data-mark="18:1,19:2,25:3,28:4,33:5">#[derive(Default)]
+  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="17" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/build.rs#L17-L33" data-mark="18:1,19:2,25:3,28:4,33:5">#[derive(Default)]
 pub struct IndexOptions&lt;'a&gt; {
     pub core: Option&lt;&amp;'a Path&gt;,
     pub cust: Option&lt;&amp;'a Path&gt;,
@@ -1393,7 +1426,7 @@ pub struct Cancelled;</pre>
     <li data-n="4"><div>A <strong>trait object</strong>: "a reference to some callable taking <code>(&amp;amp;str, usize, usize)</code>, whose concrete type we don't know". Calls go through a vtable (dynamic dispatch). The parentheses are required, because <code>&amp;amp;dyn A + B</code> is ambiguous. <code>+ Sync</code> requires the callback to be safe to share between threads. Nothing in the core crate starts a thread (I checked); the Tauri caller runs indexing on a worker thread.</div></li>
     <li data-n="5"><div>A <strong>unit struct</strong> as an error type. It carries no data, but it's a distinct type, so <code>Result&amp;lt;Index, Cancelled&amp;gt;</code> says exactly what can go wrong.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="74" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/build.rs#L74-L96" data-mark="77:6,80:7,82:8,83:9,89:10">/// Indexes the folders. With a `cancel` flag set midway, returns an empty index with a note;
+  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="74" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/build.rs#L74-L96" data-mark="77:6,80:7,82:8,83:9,89:10">/// Indexes the folders. With a `cancel` flag set midway, returns an empty index with a note;
 /// use `try_index` to tell cancellation apart.
 pub fn index(opts: &amp;IndexOptions) -&gt; Index {
     try_index(opts).unwrap_or_else(|Cancelled| Index { notes: vec!["Indexing was cancelled.".into()], ..Default::default() })
@@ -1429,7 +1462,7 @@ pub fn try_index(opts: &amp;IndexOptions) -&gt; Result&lt;Index, Cancelled&gt; {
 <section class="stop" id="s-parse" data-title="Stage 1: reading files into a sum type" data-group="build.rs, the core" data-c="own pat iter coll str opt">
   <div class="stop-head"><span class="num"></span><h2>Stage 1: reading files into a sum type</h2></div>
   <div class="files">crates/ifsdep-core/src/build.rs</div>
-  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="35" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/build.rs#L35-L41" data-mark="35:1">enum Parsed {
+  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="35" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/build.rs#L35-L41" data-mark="35:1">enum Parsed {
     Marble(ParsedMarble),
     Plsql(ParsedPlsql),
     Deploy(DeployIni),
@@ -1439,7 +1472,7 @@ pub fn try_index(opts: &amp;IndexOptions) -&gt; Result&lt;Index, Cancelled&gt; {
   <ol class="co">
     <li data-n="1"><div>An enum whose variants hold different data: a <strong>sum type</strong> ("tagged union"). One <code>Vec&amp;lt;Parsed&amp;gt;</code> can hold every parser's output, and <code>match</code> forces every use to handle every kind. If you add a parser, the compiler lists every <code>match</code> you need to update.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="95" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/build.rs#L95-L155" data-mark="95:2,98:3,99:4,101:5,109:6,110:7,115:8,121:9,130:10,137:11,140:12,143:13,153:14">    let mut parsed: Vec&lt;Parsed&gt; = Vec::new();
+  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="95" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/build.rs#L95-L155" data-mark="95:2,98:3,99:4,101:5,109:6,110:7,115:8,121:9,130:10,137:11,140:12,143:13,153:14">    let mut parsed: Vec&lt;Parsed&gt; = Vec::new();
 
     // 1. Scan and parse both roots.
     for (root, layer) in [(opts.core, Layer::Core), (opts.cust, Layer::Cust)] {
@@ -1522,7 +1555,7 @@ pub fn try_index(opts: &amp;IndexOptions) -&gt; Result&lt;Index, Cancelled&gt; {
   <div class="stop-head"><span class="num"></span><h2>Stage 2: grouping, and borrowing struct fields separately</h2></div>
   <div class="files">crates/ifsdep-core/src/build.rs</div>
   <div class="prose"><p><code>X.fragment</code> (Core) and <code>X-Cust.fragment</code> (Cust) become one unit. The logic is simple, but the borrows are instructive: the code holds a mutable borrow of one field of <code>idx</code> while reading another.</p></div>
-  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="159" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/build.rs#L159-L212" data-mark="160:1,169:2,177:3,181:4,195:5,196:6,202:7,212:8">    // 2. Group files into logical units.
+  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="159" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/build.rs#L159-L212" data-mark="160:1,169:2,177:3,181:4,195:5,196:6,202:7,212:8">    // 2. Group files into logical units.
     let mut unit_map: HashMap&lt;(UnitKind, String), usize&gt; = HashMap::new();
     for fi in 0..idx.files.len() {
         let f = &amp;idx.files[fi];
@@ -1598,9 +1631,11 @@ pub fn try_index(opts: &amp;IndexOptions) -&gt; Result&lt;Index, Cancelled&gt; {
 <section class="stop" id="s-objects" data-title="Stage 3: objects, and making a reference live long enough" data-group="build.rs, the core" data-c="life borrow clos coll pat iter own">
   <div class="stop-head"><span class="num"></span><h2>Stage 3: objects, and making a reference live long enough</h2></div>
   <div class="files">crates/ifsdep-core/src/build.rs</div>
-  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="216" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/build.rs#L216-L246" data-mark="217:1,222:2,243:3">    // 3. Objects.
+  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="216" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/build.rs#L216-L251" data-mark="217:1,224:2,248:3">    // 3. Objects.
     let mut pending_refs: Vec&lt;(usize, marble::Ref)&gt; = Vec::new();
     let mut method_objects: HashMap&lt;(usize, usize), usize&gt; = HashMap::new();
+    // Actions and functions whose modifier comes from the `@Override entity` they're bound in.
+    let mut inherited_modifier: HashSet&lt;usize&gt; = HashSet::new();
     for fi in 0..idx.files.len() {
         let Some(ui) = file_unit(&amp;idx, fi) else { continue };
         let unit_id = idx.units[ui].id.clone();
@@ -1608,6 +1643,9 @@ pub fn try_index(opts: &amp;IndexOptions) -&gt; Result&lt;Index, Cancelled&gt; {
             Parsed::Marble(m) =&gt; {
                 for d in &amp;m.decls {
                     let oi = idx.objects.len();
+                    if d.inherited {
+                        inherited_modifier.insert(oi);
+                    }
                     idx.objects.push(Object {
                         id: format!("o{oi}"),
                         unit: unit_id.clone(),
@@ -1634,7 +1672,7 @@ pub fn try_index(opts: &amp;IndexOptions) -&gt; Result&lt;Index, Cancelled&gt; {
     <li data-n="2"><div>Iterating over <code>&amp;amp;parsed[fi]</code> while pushing into <code>idx.objects</code>. This is the payoff of keeping <code>parsed</code> as its own variable (<a class="ref" href="#s-parse"></a>). If parsed data lived inside <code>idx</code>, this loop would need a shared and a mutable borrow of <code>idx</code> at once.</div></li>
     <li data-n="3"><div><code>r.clone()</code>: <code>r</code> is borrowed from <code>parsed</code>, and the queue has to own its items.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="279" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/build.rs#L279-L349" data-mark="280:4,283:5,293:6,296:7,297:8,301:9,307:10,309:11,343:12">    let mut generated_reads: Vec&lt;(usize, usize, usize)&gt; = Vec::new(); // (object, entity file, attribute)
+  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="284" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/build.rs#L284-L357" data-mark="285:4,288:5,298:6,301:7,302:8,306:9,312:10,314:11,351:12">    let mut generated_reads: Vec&lt;(usize, usize, usize)&gt; = Vec::new(); // (object, entity file, attribute)
     {
         let mut by_lu: BTreeMap&lt;String, Vec&lt;usize&gt;&gt; = BTreeMap::new();
         for fi in 0..idx.files.len() {
@@ -1694,7 +1732,10 @@ pub fn try_index(opts: &amp;IndexOptions) -&gt; Result&lt;Index, Cancelled&gt; {
                         continue;
                     }
                     let getter = add(&amp;mut idx, format!("Get_{}", plsql::snake_name(&amp;a.name)), f, a.line, true);
-                    if a.enumeration {
+                    // Also for a LOOKUP with an ENUMERATION_NAME (25R1: Core calls 46 of these
+                    // and none is hand-written, e.g. Company_API.Get_Country_Db).
+                    let lookup = a.datatype.as_deref() == Some("LOOKUP") &amp;&amp; a.enumeration_name.is_some();
+                    if a.enumeration || lookup {
                         add(&amp;mut idx, format!("Get_{}_Db", plsql::snake_name(&amp;a.name)), f, a.line, true);
                     }
                     if a.implementation.is_some() {
@@ -1722,8 +1763,8 @@ pub fn try_index(opts: &amp;IndexOptions) -&gt; Result&lt;Index, Cancelled&gt; {
 <section class="stop" id="s-edges" data-title="Stage 4: edges, and collecting before you change" data-group="build.rs, the core" data-c="clos coll borrow iter pat">
   <div class="stop-head"><span class="num"></span><h2>Stage 4: edges, and collecting before you change</h2></div>
   <div class="files">crates/ifsdep-core/src/build.rs</div>
-  <div class="prose"><p>One rule shapes this whole function: <strong>build new things in local variables, and read existing things from <code>idx</code></strong>. <code>edges</code> is a local <code>Vec</code> until line 970 (<code>idx.edges = edges;</code>), so closures can borrow <code>idx</code> freely while new edges are pushed.</p></div>
-  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="355" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/build.rs#L355-L381" data-mark="357:1,362:2,380:3,381:4">    let mut edges: Vec&lt;Edge&gt; = Vec::new();
+  <div class="prose"><p>One rule shapes this whole function: <strong>build new things in local variables, and read existing things from <code>idx</code></strong>. <code>edges</code> is a local <code>Vec</code> until line 1015 (<code>idx.edges = edges;</code>), so closures can borrow <code>idx</code> freely while new edges are pushed.</p></div>
+  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="363" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/build.rs#L363-L395" data-mark="365:1,370:2,394:3,395:4">    let mut edges: Vec&lt;Edge&gt; = Vec::new();
     let mut unresolved: Vec&lt;Finding&gt; = Vec::new();
     let push_edge = |edges: &amp;mut Vec&lt;Edge&gt;, e: Edge| {
         let mut e = e;
@@ -1743,6 +1784,12 @@ pub fn try_index(opts: &amp;IndexOptions) -&gt; Result&lt;Index, Cancelled&gt; {
         detail: None,
     };
 
+    // A client with no `projection X;` in any of its files uses the projection with its own name
+    // (25R1: 651 of the 655 clients without the line have one, and call its functions).
+    let declares_projection: HashSet&lt;usize&gt; = (0..idx.files.len())
+        .filter(|&amp;fi| matches!(&amp;parsed[fi], Parsed::Marble(m) if m.projection.is_some()))
+        .filter_map(|fi| file_unit(&amp;idx, fi))
+        .collect();
     for fi in 0..idx.files.len() {
         let Some(ui) = file_unit(&amp;idx, fi) else { continue };
         let from = idx.units[ui].id.clone();
@@ -1756,7 +1803,7 @@ pub fn try_index(opts: &amp;IndexOptions) -&gt; Result&lt;Index, Cancelled&gt; {
     <li data-n="3"><div><code>lookup</code> captures <code>layer</code>, <code>unit_map</code> and <code>idx</code> by shared reference. That's fine because nothing in this loop changes <code>idx</code>.</div></li>
     <li data-n="4"><div><code>.copied()</code> turns <code>Option&amp;lt;&amp;amp;usize&amp;gt;</code> into <code>Option&amp;lt;usize&amp;gt;</code>, and <code>.filter(…)</code> turns <code>Some</code> into <code>None</code> when the test fails. This one line encodes the model rule "Core code only sees Core".</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="406" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/build.rs#L406-L435" data-mark="408:5,414:6,418:7,424:8">            Parsed::Plsql(p) =&gt; {
+  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="429" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/build.rs#L429-L458" data-mark="431:5,437:6,441:7,447:8">            Parsed::Plsql(p) =&gt; {
                 // Aggregate calls per (target package, effective guard).
                 let mut agg: BTreeMap&lt;(usize, Option&lt;String&gt;), (usize, usize, Vec&lt;String&gt;)&gt; = BTreeMap::new();
                 for c in p.calls.iter().filter(|c| !c.package.is_empty()) {
@@ -1792,7 +1839,7 @@ pub fn try_index(opts: &amp;IndexOptions) -&gt; Result&lt;Index, Cancelled&gt; {
     <li data-n="7"><div><code>or_insert</code> with a tuple, then updating fields through <code>entry.0</code> and <code>entry.2</code>.</div></li>
     <li data-n="8"><div>Destructuring nested tuples in a <code>for</code> pattern. <code>in agg</code> (not <code>&amp;amp;agg</code>) consumes the map, so <code>guard</code> and <code>methods</code> are owned and can move into the edge without cloning.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="441" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/build.rs#L441-L461" data-mark="443:9,449:10,455:11">    // Client includes also feed the paired projection.
+  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="464" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/build.rs#L464-L484" data-mark="466:9,472:10,478:11">    // Client includes also feed the paired projection.
     let mut implicit_seen: HashSet&lt;(String, String)&gt; = HashSet::new();
     let uses: Vec&lt;(String, String)&gt; = edges
         .iter()
@@ -1825,7 +1872,7 @@ pub fn try_index(opts: &amp;IndexOptions) -&gt; Result&lt;Index, Cancelled&gt; {
   <div class="stop-head"><span class="num"></span><h2>Stage 5: name resolution with <code>Rc</code> and trait-object closures</h2></div>
   <div class="files">crates/ifsdep-core/src/build.rs</div>
   <div class="prose"><p>This is the hardest Rust in the codebase. <code>resolve</code> answers "which declaration does this name refer to?" by ranking candidates: same unit, then reachable units, then units reachable from a client or projection this unit ends up in. Reachability is computed lazily and cached.</p></div>
-  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="480" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/build.rs#L480-L576" data-mark="490:1,491:2,506:3,530:4,531:5,533:6,541:7,555:8,556:9,565:10,570:11,574:12">    let mut adjacency: HashMap&lt;usize, Vec&lt;usize&gt;&gt; = HashMap::new();
+  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="503" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/build.rs#L503-L599" data-mark="513:1,514:2,529:3,553:4,554:5,556:6,564:7,578:8,579:9,588:10,593:11,597:12">    let mut adjacency: HashMap&lt;usize, Vec&lt;usize&gt;&gt; = HashMap::new();
     for e in &amp;edges {
         if matches!(
             e.kind,
@@ -1925,9 +1972,9 @@ pub fn try_index(opts: &amp;IndexOptions) -&gt; Result&lt;Index, Cancelled&gt; {
   <ol class="co">
     <li data-n="1"><div>A memo cache whose values are <code>Rc&amp;lt;HashSet&amp;lt;usize&amp;gt;&amp;gt;</code>: reference-counted, shared ownership, single-threaded. Point 3 explains why it's not a plain <code>&amp;amp;HashSet</code>.</div></li>
     <li data-n="2"><div><code>let mut closure</code>: the closure changes <code>closure_cache</code>, which makes it <code>FnMut</code>, and calling an <code>FnMut</code> needs <code>&amp;amp;mut</code> access to the closure itself. It reads <code>adjacency</code> by shared reference.</div></li>
-    <li data-n="3"><div><code>.clone()</code> on an <code>Rc</code> bumps a counter. It doesn't copy the set. Returning a <em>reference</em> into the cache isn't possible: an <code>FnMut</code> closure can't hand out a borrow of its own captured state that outlives the call (Rust has no "lending closures"). Even if it could, holding that borrow would lock the closure, and line 565 calls <code>closure(r)</code> again while <code>reach</code> from line 555 is still alive. With <code>Rc</code>, each caller owns its handle and the cache stays free.</div></li>
+    <li data-n="3"><div><code>.clone()</code> on an <code>Rc</code> bumps a counter. It doesn't copy the set. Returning a <em>reference</em> into the cache isn't possible: an <code>FnMut</code> closure can't hand out a borrow of its own captured state that outlives the call (Rust has no "lending closures"). Even if it could, holding that borrow would lock the closure, and line 588 calls <code>closure(r)</code> again while <code>reach</code> from line 578 is still alive. With <code>Rc</code>, each caller owns its handle and the cache stays free.</div></li>
     <li data-n="4"><div><code>resolve</code> is a closure with typed parameters and an explicit return type. It captures <code>by_name</code>, <code>roots_of</code> and <code>file_root</code> by shared reference.</div></li>
-    <li data-n="5"><div><code>closure: &amp;amp;mut dyn FnMut(usize) -&amp;gt; Rc&amp;lt;HashSet&amp;lt;usize&amp;gt;&amp;gt;</code>: the memoized closure is <em>passed in</em> rather than captured. If <code>resolve</code> captured it mutably, <code>closure</code> would stay locked as long as <code>resolve</code> exists, and later direct calls (line 765, <code>closure(*p)</code>) would fail to compile. Callers write <code>&amp;amp;mut closure</code>.</div></li>
+    <li data-n="5"><div><code>closure: &amp;amp;mut dyn FnMut(usize) -&amp;gt; Rc&amp;lt;HashSet&amp;lt;usize&amp;gt;&amp;gt;</code>: the memoized closure is <em>passed in</em> rather than captured. If <code>resolve</code> captured it mutably, <code>closure</code> would stay locked as long as <code>resolve</code> exists, and later direct calls (line 810, <code>closure(*p)</code>) would fail to compile. Callers write <code>&amp;amp;mut closure</code>.</div></li>
     <li data-n="6"><div><code>accept: &amp;amp;dyn Fn(&amp;amp;Object) -&amp;gt; bool</code>: each call site passes its own filter closure. Every closure has its own unique, unnameable type, so <code>&amp;amp;dyn Fn</code> is how one parameter accepts all of them. <code>objects: &amp;amp;[Object]</code> is a parameter for the same reason as <code>idx</code> in <a class="ref" href="#s-group"></a>: the caller changes <code>idx.objects</code> between calls.</div></li>
     <li data-n="7"><div><code>?</code> inside a closure returns from <em>the closure</em>, not from <code>try_index</code>. An unknown name gives <code>None</code>.</div></li>
     <li data-n="8"><div><code>reach</code> holds one <code>Rc</code>, the set of units reachable from <code>from_unit</code>…</div></li>
@@ -1942,7 +1989,8 @@ pub fn try_index(opts: &amp;IndexOptions) -&gt; Result&lt;Index, Cancelled&gt; {
 <section class="stop" id="s-overrides" data-title="Overrides: cloning to end a borrow" data-group="build.rs, the core" data-c="own borrow clos dyn">
   <div class="stop-head"><span class="num"></span><h2>Overrides: cloning to end a borrow</h2></div>
   <div class="files">crates/ifsdep-core/src/build.rs</div>
-  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="578" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/build.rs#L578-L626" data-mark="583:1,589:2,592:3,597:4,608:5,613:6">    // Overrides → base.
+  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="601" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/build.rs#L601-L656" data-mark="607:1,613:2,616:3,621:4,638:5,643:6">    // Overrides → base.
+    let mut not_overrides: Vec&lt;usize&gt; = Vec::new();
     for oi in 0..idx.objects.len() {
         if idx.objects[oi].modifier.is_none() {
             continue;
@@ -1968,6 +2016,12 @@ pub fn try_index(opts: &amp;IndexOptions) -&gt; Result&lt;Index, Cancelled&gt; {
             idx.files[o.file].root,
             true,
         );
+        if base.is_none() &amp;&amp; inherited_modifier.contains(&amp;oi) {
+            // Bound inside an `@Override entity` with no action of that name bound to the
+            // base: a new action, which calls and references resolve to like any other.
+            not_overrides.push(oi);
+            continue;
+        }
         if base.is_none() {
             // Below Core there is only generated code, and a pure Cust package can only
             // override what its own model generates.
@@ -1992,7 +2046,7 @@ pub fn try_index(opts: &amp;IndexOptions) -&gt; Result&lt;Index, Cancelled&gt; {
         }
     }</pre>
   <ol class="co">
-    <li data-n="1"><div><code>let o = idx.objects[oi].clone();</code> is the simplest fix for a borrow conflict. <code>o</code> is used until line 623 (<code>o.modifier.clone()</code>), but lines 608 and 613 write to <code>idx.objects[oi]</code>. A reference (<code>&amp;amp;idx.objects[oi]</code>) would still be alive during those writes, so the compiler would reject them. Cloning means <code>o</code> borrows nothing. The cost is copying an <code>Object</code>'s <code>String</code>s once per override, which is cheap at this scale.</div></li>
+    <li data-n="1"><div><code>let o = idx.objects[oi].clone();</code> is the simplest fix for a borrow conflict. <code>o</code> is used until line 653 (<code>o.modifier.clone()</code>), but lines 638 and 643 write to <code>idx.objects[oi]</code>. A reference (<code>&amp;amp;idx.objects[oi]</code>) would still be alive during those writes, so the compiler would reject them. Cloning means <code>o</code> borrows nothing. The cost is copying an <code>Object</code>'s <code>String</code>s once per override, which is cheap at this scale.</div></li>
     <li data-n="2"><div>Passing <code>&amp;amp;idx.objects</code> and <code>&amp;amp;mut closure</code> into <code>resolve</code>. Both borrows end when the call returns.</div></li>
     <li data-n="3"><div><code>&amp;amp;|c: &amp;amp;Object| { … }</code> makes a closure and takes a reference to it in one go. The closure is a temporary that lives until the end of the <code>let base = …;</code> statement, which is long enough for the call. It borrows <code>group</code>, <code>is_plsql</code> and <code>o</code>.</div></li>
     <li data-n="4"><div>Comparing two <code>Option&amp;lt;String&amp;gt;</code>s with <code>==</code> compares what's inside (<code>None == None</code> is <code>true</code>). That comes from the derived <code>PartialEq</code> on <code>Option</code>.</div></li>
@@ -2006,7 +2060,7 @@ pub fn try_index(opts: &amp;IndexOptions) -&gt; Result&lt;Index, Cancelled&gt; {
   <div class="stop-head"><span class="num"></span><h2>Stage 5: references, plsvc methods, calls</h2></div>
   <div class="files">crates/ifsdep-core/src/build.rs</div>
   <div class="prose"><p>With overrides resolved, stage 5 links everything the parsers queued: Marble references and calls, projection actions to their <code>.plsvc</code> methods, and PL/SQL method calls and table reads. This is where most object-level edges come from, and what the Objects view draws.</p></div>
-  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="689" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/build.rs#L689-L744" data-mark="690:1,695:2,697:3,722:4,725:5,735:6,736:7,738:8">    // References, arrays, enumerations, fetch calls, `from =` and `call X()`.
+  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="730" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/build.rs#L730-L789" data-mark="731:1,736:2,738:3,764:4,770:5,780:6,781:7,783:8">    // References, arrays, enumerations, fetch calls, `from =` and `call X()`.
     for (oi, r) in &amp;pending_refs {
         let from_unit = id_index(&amp;idx.objects[*oi].unit);
         let file = idx.objects[*oi].file;
@@ -2038,11 +2092,15 @@ pub fn try_index(opts: &amp;IndexOptions) -&gt; Result&lt;Index, Cancelled&gt; {
                     &amp;mut closure,
                     &amp;r.target,
                     &amp;|c: &amp;Object| {
-                        // An action bound to an entity is only callable from a command for that entity.
+                        // An action bound to an entity is only callable from a command for that
+                        // entity, or from something using an entityset for it.
                         let entity = idx.objects[*oi].target.as_deref();
+                        let through_set = |e: &amp;str, t: &amp;str| {
+                            entityset_for.get(&amp;e.to_ascii_uppercase()).is_some_and(|v| v.iter().any(|x| x.eq_ignore_ascii_case(t)))
+                        };
                         (c.kind == "action" || c.kind == "function")
                             &amp;&amp; c.section == Some(Section::Projection)
-                            &amp;&amp; c.target.as_deref().is_none_or(|t| entity.is_some_and(|e| e.eq_ignore_ascii_case(t)))
+                            &amp;&amp; c.target.as_deref().is_none_or(|t| entity.is_some_and(|e| e.eq_ignore_ascii_case(t) || through_set(e, t)))
                     },
                     from_unit,
                     None,
@@ -2069,10 +2127,10 @@ pub fn try_index(opts: &amp;IndexOptions) -&gt; Result&lt;Index, Cancelled&gt; {
     <li data-n="4"><div>A closure that captures <code>idx</code> and <code>oi</code> and is defined inside a function call's argument list. It lives just long enough for the call.</div></li>
     <li data-n="5"><div><code>Option::is_none_or</code> (Rust 1.82): "no target, or the target passes". It's the mirror of <code>is_some_and</code>, and saves a <code>match</code>.</div></li>
     <li data-n="6"><div><code>fetch = "Shop_Order_API.Get_X()"</code> in Marble becomes an <code>Invokes</code> edge to the PL/SQL method, through <code>package_method</code>, which follows the same "Core sees only Core" rule.</div></li>
-    <li data-n="7"><div><code>rel_id</code> is the <code>FnMut</code> closure that finds or creates a relation by name (lines 632–644). Calling it needs a mutable borrow of the closure, which is fine inside the loop.</div></li>
+    <li data-n="7"><div><code>rel_id</code> is the <code>FnMut</code> closure that finds or creates a relation by name (lines 665–677). Calling it needs a mutable borrow of the closure, which is fine inside the loop.</div></li>
     <li data-n="8"><div>A reference that doesn't resolve simply gets no edge. Unresolved includes and projections became findings in stage 4. Object references don't, because an unknown name there usually means a generated or unindexed base.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="746" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/build.rs#L746-L788" data-mark="748:9,757:10,765:11,767:12,779:13,780:14">    // Projection action/function → .plsvc method. A projection's own plsvc first;
+  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="791" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/build.rs#L791-L833" data-mark="793:9,802:10,810:11,812:12,824:13,825:14">    // Projection action/function → .plsvc method. A projection's own plsvc first;
     // for a fragment, its own plsvc, then those of projections that include it.
     let mut plsvc_for: HashMap&lt;usize, Vec&lt;usize&gt;&gt; = HashMap::new();
     for (ui, u) in idx.units.iter().enumerate() {
@@ -2123,7 +2181,7 @@ pub fn try_index(opts: &amp;IndexOptions) -&gt; Result&lt;Index, Cancelled&gt; {
     <li data-n="13"><div><code>.cloned().unwrap_or_default()</code> turns <code>Option&amp;lt;&amp;amp;Vec&amp;gt;</code> into an owned <code>Vec</code>. <code>.map(Vec::as_slice).unwrap_or_default()</code> would borrow instead and skip the copy.</div></li>
     <li data-n="14"><div>The naming rule IFS uses: projection action <code>DoIt</code> is implemented by <code>Do_It___</code>. Both splitting styles (<code>snake_name</code> and <code>snake_name_grouped</code>, <a class="ref" href="#s-plsql"></a>) are tried, each with and without the <code>___</code> suffix. A nested <code>find_map</code> plus <code>or_else</code> expresses "first match in priority order" without any loop variables.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="790" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/build.rs#L790-L826" data-mark="792:15,796:16,797:17,803:18,806:19,809:20">    // Method → method calls and method → table/view, aggregated per pair.
+  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="835" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/build.rs#L835-L871" data-mark="837:15,841:16,842:17,848:18,851:19,854:20">    // Method → method calls and method → table/view, aggregated per pair.
     for fi in 0..idx.files.len() {
         let Parsed::Plsql(p) = &amp;parsed[fi] else { continue };
         let layer = idx.files[fi].root;
@@ -2175,7 +2233,7 @@ pub fn try_index(opts: &amp;IndexOptions) -&gt; Result&lt;Index, Cancelled&gt; {
   <div class="stop-head"><span class="num"></span><h2>Stage 5: tables, views and their columns</h2></div>
   <div class="files">crates/ifsdep-core/src/build.rs</div>
   <div class="prose"><p>Now every <code>Relation</code> gets its definitions: from a <code>.views</code> or <code>.storage</code> statement, or generated from an <code>.entity</code>. This stage also builds <code>cols</code>, the column table that COLUMN_AMBIGUOUS needs (<a class="ref" href="#s-analyze"></a>). <code>cols</code> isn't part of the index; it's passed to the rules separately.</p></div>
-  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="828" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/build.rs#L828-L894" data-mark="830:1,833:2,839:3,846:4,852:5,853:6,860:7,873:8,885:9,887:10">    // Views and tables: where each is defined, and what each view reads.
+  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="873" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/build.rs#L873-L939" data-mark="875:1,878:2,884:3,891:4,897:5,898:6,905:7,918:8,930:9,932:10">    // Views and tables: where each is defined, and what each view reads.
     let mut rel_defs: Vec&lt;(String, RelationDef)&gt; = Vec::new();
     let mut cols = analyze::Columns::default();
     // Each LU's generated view reads its generated table. A Cust entity's rename wins over
@@ -2254,7 +2312,7 @@ pub fn try_index(opts: &amp;IndexOptions) -&gt; Result&lt;Index, Cancelled&gt; {
     <li data-n="9"><div>A column is "added by Cust" if a Cust file declares it and Core's doesn't. These are exactly the columns that can make Core SQL ambiguous.</div></li>
     <li data-n="10"><div>A nested entry chain: <code>known.entry(rel).or_default().entry(c).or_insert_with(…)</code>. Two map levels, inserting at each level only if missing, with one lookup per level.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="905" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/build.rs#L905-L946" data-mark="906:11,918:12,922:13,925:14,929:15,934:16">    for fi in 0..idx.files.len() {
+  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="950" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/build.rs#L950-L991" data-mark="951:11,963:12,967:13,970:14,974:15,979:16">    for fi in 0..idx.files.len() {
         let Parsed::Db(d) = &amp;parsed[fi] else { continue };
         let layer = idx.files[fi].root;
         for t in &amp;d.tables {
@@ -2304,7 +2362,7 @@ pub fn try_index(opts: &amp;IndexOptions) -&gt; Result&lt;Index, Cancelled&gt; {
     <li data-n="15"><div><code>*r != v.name</code>: <code>r</code> is <code>&amp;amp;String</code> (from iterating <code>&amp;amp;v.reads</code>), so <code>*r</code> is the <code>String</code>, compared by value. A view reading itself isn't an edge.</div></li>
     <li data-n="16"><div>Calls made inside a view (<code>Xxx_API.Get(…)</code> in its SELECT) become <code>Invokes</code> edges from the view to the PL/SQL method.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="970" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/build.rs#L970-L976" data-mark="970:17,972:18">    idx.edges = edges;
+  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="1015" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/build.rs#L1015-L1021" data-mark="1015:17,1017:18">    idx.edges = edges;
     for (id, d) in rel_defs {
         let r = &amp;mut relations[id_index(&amp;id)];
         r.kind = if d.how.contains("view") { "view" } else { "table" }.into();
@@ -2313,7 +2371,7 @@ pub fn try_index(opts: &amp;IndexOptions) -&gt; Result&lt;Index, Cancelled&gt; {
     idx.relations = relations;</pre>
   <ol class="co">
     <li data-n="17"><div>The edges built as a local since stage 4 move into the index. From here on, <code>idx.edges</code> is the source of truth.</div></li>
-    <li data-n="18"><div><code>&amp;amp;mut relations[…]</code>: <code>relations</code> has been mutably captured by the <code>rel_id</code> closure since line 632. That closure isn't used after this point, so its borrow is over and the vector can be borrowed directly. Closures follow the same NLL rules as any other borrow.</div></li>
+    <li data-n="18"><div><code>&amp;amp;mut relations[…]</code>: <code>relations</code> has been mutably captured by the <code>rel_id</code> closure since line 665. That closure isn't used after this point, so its borrow is over and the vector can be borrowed directly. Closures follow the same NLL rules as any other borrow.</div></li>
   </ol>
 </section>
 
@@ -2321,7 +2379,7 @@ pub fn try_index(opts: &amp;IndexOptions) -&gt; Result&lt;Index, Cancelled&gt; {
 <section class="stop" id="s-dyn" data-title="Stages 5–7: bindings, components, rules" data-group="build.rs, the core" data-c="dyn clos life pat coll own">
   <div class="stop-head"><span class="num"></span><h2>Stages 5–7: bindings, components, rules</h2></div>
   <div class="files">crates/ifsdep-core/src/build.rs</div>
-  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="948" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/build.rs#L948-L969" data-mark="950:1,951:2,956:3,963:4">    // entityset for / client constructs bound to projection objects.
+  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="993" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/build.rs#L993-L1014" data-mark="995:1,996:2,1001:3,1008:4">    // entityset for / client constructs bound to projection objects.
     for oi in 0..idx.objects.len() {
         let o = idx.objects[oi].clone();
         let Some(target) = &amp;o.target else { continue };
@@ -2349,7 +2407,7 @@ pub fn try_index(opts: &amp;IndexOptions) -&gt; Result&lt;Index, Cancelled&gt; {
     <li data-n="3"><div><strong>Why <code>Box&amp;lt;dyn Fn&amp;gt;</code>:</strong> each branch of the <code>if</code> makes a different closure, and each closure has its own unnameable type, but an <code>if</code> expression must have one type. Boxing each closure as <code>Box&amp;lt;dyn Fn(&amp;amp;Object) -&amp;gt; bool&amp;gt;</code> erases those types into one. The type annotation on the <code>let</code> tells the compiler to do that conversion in every branch.</div></li>
     <li data-n="4"><div><code>&amp;amp;*accept</code>: <code>*</code> dereferences the <code>Box</code> to <code>dyn Fn</code>, and <code>&amp;amp;</code> borrows it, giving the <code>&amp;amp;dyn Fn</code> that <code>resolve</code> wants.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="980" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/build.rs#L980-L1011" data-mark="981:5,983:6,991:7,995:8,998:9,1011:10">    // 6. Components and deploy.ini connections.
+  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="1025" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/build.rs#L1025-L1056" data-mark="1026:5,1028:6,1036:7,1040:8,1043:9,1056:10">    // 6. Components and deploy.ini connections.
     let mut comps: BTreeMap&lt;String, Component&gt; = BTreeMap::new();
     for (fi, f) in idx.files.iter().enumerate() {
         let c = comps.entry(f.component.clone()).or_insert_with(|| Component {
@@ -2389,7 +2447,7 @@ pub fn try_index(opts: &amp;IndexOptions) -&gt; Result&lt;Index, Cancelled&gt; {
     <li data-n="9"><div><code>d.description.clone().or(c.description.take())</code>: prefer this file's description, otherwise keep the old one. <code>take()</code> moves the old value out so it can be put back without a clone.</div></li>
     <li data-n="10"><div><code>comps.into_values().collect()</code>: consume the map and keep the values, already in name order.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="1013" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/build.rs#L1013-L1037" data-mark="1016:11,1017:12,1018:13,1031:14,1033:15,1036:16">    check()?;
+  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="1058" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/build.rs#L1058-L1082" data-mark="1061:11,1062:12,1063:13,1076:14,1078:15,1081:16">    check()?;
     report("Checking rules", 0, 0);
     // 7. Findings.
     let mut findings = unresolved;
@@ -2422,7 +2480,7 @@ pub fn try_index(opts: &amp;IndexOptions) -&gt; Result&lt;Index, Cancelled&gt; {
     <li data-n="15"><div>The upgrade comparison runs only when a previous Core folder was given.</div></li>
     <li data-n="16"><div><code>upgrade::run</code> takes <strong>out-parameters</strong> (<code>&amp;amp;mut findings</code>, <code>&amp;amp;mut notes</code>) instead of returning a tuple. It appends to existing vectors. Both styles are idiomatic. Returning values reads more clearly, and out-parameters let the callee add to existing buffers.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="1039" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/build.rs#L1039-L1061" data-mark="1039:17,1040:18,1044:19,1050:20,1054:21,1061:22">    for f in &amp;mut findings {
+  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="1084" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/build.rs#L1084-L1106" data-mark="1084:17,1085:18,1089:19,1095:20,1099:21,1106:22">    for f in &amp;mut findings {
         let cust_file = |fi: usize| idx.files[fi].root == Layer::Cust;
         f.involves_cust = f.location.as_ref().is_some_and(|l| cust_file(l.file))
             || f.edges.iter().any(|&amp;e| cust_file(idx.edges[e].file))
@@ -2453,7 +2511,7 @@ pub fn try_index(opts: &amp;IndexOptions) -&gt; Result&lt;Index, Cancelled&gt; {
     <li data-n="21"><div><code>idx.findings = findings;</code> <em>moves</em> the vector into the index: the buffer changes owner, and nothing is copied.</div></li>
     <li data-n="22"><div><code>Ok(idx)</code> moves the whole <code>Index</code> out to the caller. Returning large owned values by value is normal Rust, since a move is at most a shallow copy of the struct's fields.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="1064" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/build.rs#L1064-L1071" data-mark="1065:23">/// The entity's own view name (`DB_VIEW_NAME`) or table name (`DB_TABLE_NAME`), if it sets one.
+  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="1109" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/build.rs#L1109-L1116" data-mark="1110:23">/// The entity's own view name (`DB_VIEW_NAME`) or table name (`DB_TABLE_NAME`), if it sets one.
 fn entity_rename(e: &amp;entity::ParsedEntity, view: bool) -&gt; &amp;Option&lt;(String, usize)&gt; {
     if view {
         &amp;e.view
@@ -2470,7 +2528,7 @@ fn entity_rename(e: &amp;entity::ParsedEntity, view: bool) -&gt; &amp;Option&lt;
 <section class="stop" id="s-graph" data-title="CYCLE: Tarjan's algorithm and the cycle rule" data-group="Rules" data-c="pat borrow coll iter test">
   <div class="stop-head"><span class="num"></span><h2>CYCLE: Tarjan's algorithm and the cycle rule</h2></div>
   <div class="files">crates/ifsdep-core/src/analyze.rs · crates/ifsdep-core/src/graph.rs</div>
-  <pre class="code" data-file="crates/ifsdep-core/src/analyze.rs" data-start="40" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/analyze.rs#L40-L50" data-mark="40:1,42:2,43:3">pub fn run(idx: &amp;Index, cols: &amp;Columns) -&gt; Vec&lt;Finding&gt; {
+  <pre class="code" data-file="crates/ifsdep-core/src/analyze.rs" data-start="40" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/analyze.rs#L40-L50" data-mark="40:1,42:2,43:3">pub fn run(idx: &amp;Index, cols: &amp;Columns) -&gt; Vec&lt;Finding&gt; {
     let mut out = Vec::new();
     let mut src = Source::default();
     cycles(idx, &amp;mut out);
@@ -2487,7 +2545,7 @@ fn entity_rename(e: &amp;entity::ParsedEntity, view: bool) -&gt; &amp;Option&lt;
     <li data-n="3"><div>Each rule appends to <code>out</code> through <code>&amp;amp;mut Vec&amp;lt;Finding&amp;gt;</code>. The order of these calls doesn't matter, because <code>build.rs</code> sorts the findings at the end.</div></li>
   </ol>
   <div class="prose"><p>Tarjan's algorithm finds strongly connected components, sets of nodes that can all reach each other, which here means include cycles. It's usually written recursively, but a chain of 200,000 includes would overflow the stack, so this version keeps its own stack of <code>(node, position)</code> frames.</p></div>
-  <pre class="code" data-file="crates/ifsdep-core/src/graph.rs" data-start="4" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/graph.rs#L4-L61" data-mark="5:4,7:5,19:6,26:7,29:8,36:9,42:10,48:11">/// `adj[n]` lists the successors of node `n`. Returns every SCC.
+  <pre class="code" data-file="crates/ifsdep-core/src/graph.rs" data-start="4" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/graph.rs#L4-L61" data-mark="5:4,7:5,19:6,26:7,29:8,36:9,42:10,48:11">/// `adj[n]` lists the successors of node `n`. Returns every SCC.
 pub fn tarjan_scc(adj: &amp;[Vec&lt;usize&gt;]) -&gt; Vec&lt;Vec&lt;usize&gt;&gt; {
     let n = adj.len();
     let mut index = vec![usize::MAX; n];
@@ -2555,7 +2613,7 @@ pub fn tarjan_scc(adj: &amp;[Vec&lt;usize&gt;]) -&gt; Vec&lt;Vec&lt;usize&gt;&gt
     <li data-n="10"><div><code>if let Some(&amp;amp;(parent, _)) = work.last()</code>: destructure a shared reference to a tuple and copy out the first field.</div></li>
     <li data-n="11"><div><code>stack.pop().unwrap()</code> is safe by the algorithm: <code>v</code> itself is on the stack, so the loop reaches it before the stack empties.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/graph.rs" data-start="82" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/graph.rs#L82-L89" data-mark="84:12">    #[test]
+  <pre class="code" data-file="crates/ifsdep-core/src/graph.rs" data-start="82" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/graph.rs#L82-L89" data-mark="84:12">    #[test]
     fn long_chain_does_not_overflow() {
         let n = 200_000;
         let adj: Vec&lt;Vec&lt;usize&gt;&gt; = (0..n).map(|i| if i + 1 &lt; n { vec![i + 1] } else { vec![0] }).collect();
@@ -2567,7 +2625,7 @@ pub fn tarjan_scc(adj: &amp;[Vec&lt;usize&gt;]) -&gt; Vec&lt;Vec&lt;usize&gt;&gt
     <li data-n="12"><div>A test of the property that matters: no stack overflow on a 200,000-node ring.</div></li>
   </ol>
   <div class="prose"><p>Now the rule that uses it. A cycle in Core alone can't be your fault, and you can't change it anyway. The rule runs Tarjan twice, on Core-only include edges and on all of them, to tell "in Core" apart from "appears with the Cust layer".</p></div>
-  <pre class="code" data-file="crates/ifsdep-core/src/analyze.rs" data-start="206" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/analyze.rs#L206-L266" data-mark="208:13,210:14,219:15,232:16,238:17,242:18,250:19,252:20,258:21,259:22,265:23">fn cycles(idx: &amp;Index, out: &amp;mut Vec&lt;Finding&gt;) {
+  <pre class="code" data-file="crates/ifsdep-core/src/analyze.rs" data-start="206" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/analyze.rs#L206-L266" data-mark="208:13,210:14,219:15,232:16,238:17,242:18,250:19,252:20,258:21,259:22,265:23">fn cycles(idx: &amp;Index, out: &amp;mut Vec&lt;Finding&gt;) {
     let n = idx.units.len();
     let include_edges: Vec&lt;&amp;Edge&gt; = idx.edges.iter().filter(|e| e.kind == EdgeKind::Include).collect();
 
@@ -2641,7 +2699,7 @@ pub fn tarjan_scc(adj: &amp;[Vec&lt;usize&gt;]) -&gt; Vec&lt;Vec&lt;usize&gt;&gt
     <li data-n="22"><div><code>*cands[0]</code>: <code>cands</code> holds <code>&amp;amp;&amp;amp;Edge</code> (a reference into <code>include_edges</code>, which holds <code>&amp;amp;Edge</code>), and one <code>*</code> gives back the <code>&amp;amp;Edge</code>.</div></li>
     <li data-n="23"><div>The suggested break is the first <em>Cust</em> hop, the include you are allowed to change.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/analyze.rs" data-start="318" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/analyze.rs#L318-L358" data-mark="324:24,325:25,330:26">fn shortest_cycle(start: usize, adj: &amp;BTreeMap&lt;usize, BTreeSet&lt;usize&gt;&gt;) -&gt; Vec&lt;usize&gt; {
+  <pre class="code" data-file="crates/ifsdep-core/src/analyze.rs" data-start="318" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/analyze.rs#L318-L358" data-mark="324:24,325:25,330:26">fn shortest_cycle(start: usize, adj: &amp;BTreeMap&lt;usize, BTreeSet&lt;usize&gt;&gt;) -&gt; Vec&lt;usize&gt; {
     let mut parent: HashMap&lt;usize, usize&gt; = HashMap::new();
     let mut queue = VecDeque::new();
     if adj.get(&amp;start).is_some_and(|s| s.contains(&amp;start)) {
@@ -2694,7 +2752,7 @@ pub fn tarjan_scc(adj: &amp;[Vec&lt;usize&gt;]) -&gt; Vec&lt;Vec&lt;usize&gt;&gt
   <div class="stop-head"><span class="num"></span><h2>Duplicates, overrides, connections, layers</h2></div>
   <div class="files">crates/ifsdep-core/src/analyze.rs</div>
   <div class="prose"><p>Four rules that read the finished graph. They share one technique: build a map from some key to the things that share it, then report every key that has too many (or too few) entries. Most of these maps use <code>&amp;amp;str</code> keys that borrow from <code>idx</code>.</p></div>
-  <pre class="code" data-file="crates/ifsdep-core/src/analyze.rs" data-start="362" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/analyze.rs#L362-L401" data-mark="362:1,370:2,380:3,383:4,390:5,397:6,401:7">fn dup_key(o: &amp;Object) -&gt; String {
+  <pre class="code" data-file="crates/ifsdep-core/src/analyze.rs" data-start="362" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/analyze.rs#L362-L401" data-mark="362:1,370:2,380:3,383:4,390:5,397:6,401:7">fn dup_key(o: &amp;Object) -&gt; String {
     let section = match o.section {
         Some(Section::Client) =&gt; "client",
         Some(Section::Projection) =&gt; "projection",
@@ -2719,7 +2777,7 @@ fn duplicates(idx: &amp;Index, src: &amp;mut Source, out: &amp;mut Vec&lt;Findin
         by_unit.entry(o.unit.as_str()).or_default().push(oi);
     }
 
-    // a) Same unit, two files, no @Override → the overlay forgot the annotation.
+    // a) Same unit, two files, no @Override → the -Cust file forgot the annotation.
     for u in &amp;idx.units {
         let mut seen: BTreeMap&lt;String, Vec&lt;usize&gt;&gt; = BTreeMap::new();
         for &amp;oi in by_unit.get(u.id.as_str()).into_iter().flatten() {
@@ -2743,7 +2801,7 @@ fn duplicates(idx: &amp;Index, src: &amp;mut Source, out: &amp;mut Vec&lt;Findin
     <li data-n="6"><div>Collecting into a <code>BTreeSet</code> counts distinct files and sorts them. Two or more files declaring the same key without <code>@Override</code> means a missing override.</div></li>
     <li data-n="7"><div><code>find(…).unwrap_or(objs[0])</code>: prefer the Core declaration as "the base", else the first one.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/analyze.rs" data-start="441" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/analyze.rs#L441-L478" data-mark="442:8,448:9,453:10,457:11,474:12,475:13">    // b) Two different units feed the same definition into one client/projection.
+  <pre class="code" data-file="crates/ifsdep-core/src/analyze.rs" data-start="441" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/analyze.rs#L441-L478" data-mark="442:8,448:9,453:10,457:11,474:12,475:13">    // b) Two different units feed the same definition into one client/projection.
     let mut include_adj: HashMap&lt;&amp;str, Vec&lt;(&amp;str, usize)&gt;&gt; = HashMap::new();
     for e in &amp;idx.edges {
         if matches!(e.kind, EdgeKind::Include | EdgeKind::ImplicitInclude) {
@@ -2789,7 +2847,7 @@ fn duplicates(idx: &amp;Index, src: &amp;mut Source, out: &amp;mut Vec&lt;Findin
     <li data-n="12"><div>Turning the borrowed <code>&amp;amp;str</code>s into owned <code>String</code>s for the key, because the map outlives this loop's borrows.</div></li>
     <li data-n="13"><div><code>or_insert_with(|| (Vec::new(), objs.clone()))</code>: start a report the first time a key is seen, then add each root that reaches it.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/analyze.rs" data-start="570" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/analyze.rs#L570-L594" data-mark="572:14,573:15,578:16">fn overrides(idx: &amp;Index, out: &amp;mut Vec&lt;Finding&gt;) {
+  <pre class="code" data-file="crates/ifsdep-core/src/analyze.rs" data-start="570" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/analyze.rs#L570-L594" data-mark="572:14,573:15,578:16">fn overrides(idx: &amp;Index, out: &amp;mut Vec&lt;Finding&gt;) {
     for o in &amp;idx.objects {
         let Some(m) = &amp;o.modifier else { continue };
         if o.base.is_some() || o.base_generated {
@@ -2819,9 +2877,31 @@ fn duplicates(idx: &amp;Index, src: &amp;mut Source, out: &amp;mut Vec&lt;Findin
     <li data-n="15"><div>Stage 5 already resolved the bases (<a class="ref" href="#s-overrides"></a>). This rule just reports what's left without one.</div></li>
     <li data-n="16"><div><code>let mut f = if … { let mut f = …; …; f } else { … };</code>: blocks are expressions, and a block's last expression is its value. Each branch builds and returns its own finding.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/analyze.rs" data-start="619" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/analyze.rs#L619-L673" data-mark="620:17,621:18,631:19,634:20,645:21,650:22,652:23">fn connections(idx: &amp;Index, out: &amp;mut Vec&lt;Finding&gt;) {
+  <pre class="code" data-file="crates/ifsdep-core/src/analyze.rs" data-start="619" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/analyze.rs#L619-L696" data-mark="620:17,621:18,653:19,656:20,667:21,672:22,675:23">fn connections(idx: &amp;Index, out: &amp;mut Vec&lt;Finding&gt;) {
     let comps: HashMap&lt;&amp;str, &amp;Component&gt; = idx.components.iter().map(|c| (c.name.as_str(), c)).collect();
     let mut seen: HashSet&lt;(usize, String, &amp;str)&gt; = HashSet::new();
+    // What a component reaches through STATIC connections, its own and theirs: always installed
+    // with it, so not missing. (25R1 Core relies on this ~19,000 times: ORDER calls ENTERP
+    // through Invoic=STATIC and lists no Enterp.) A chain through a DYNAMIC one doesn't count.
+    let static_reach: HashMap&lt;&amp;str, HashSet&lt;&amp;str&gt;&gt; = idx
+        .components
+        .iter()
+        .map(|start| {
+            let mut seen: HashSet&lt;&amp;str&gt; = HashSet::new();
+            let mut stack = vec![start];
+            while let Some(n) = stack.pop() {
+                for c in n.connections.iter().filter(|c| c.kind == "STATIC") {
+                    if let Some(t) = comps.get(c.target.as_str()) {
+                        if seen.insert(t.name.as_str()) {
+                            stack.push(t);
+                        }
+                    }
+                }
+            }
+            (start.name.as_str(), seen)
+        })
+        .collect();
+    let reaches = |from: &amp;str, to: &amp;str| static_reach.get(from).is_some_and(|s| s.contains(to));
 
     for e in &amp;idx.edges {
         if !matches!(e.kind, EdgeKind::Include | EdgeKind::Calls) {
@@ -2851,6 +2931,7 @@ fn duplicates(idx: &amp;Index, src: &amp;mut Source, out: &amp;mut Vec&lt;Findin
             _ =&gt; format!("calls {} ({})", target_unit.name, e.detail.clone().unwrap_or_default()),
         };
         match conn {
+            None if reaches(src, tgt) =&gt; {}
             None =&gt; {
                 if !seen.insert((e.file, tgt.to_string(), "missing")) {
                     continue;
@@ -2880,10 +2961,10 @@ fn duplicates(idx: &amp;Index, src: &amp;mut Source, out: &amp;mut Vec&lt;Findin
     <li data-n="19"><div>Calls within one component never need a connection.</div></li>
     <li data-n="20"><div>let-else on a <code>HashMap::get</code>: <code>comp</code> is <code>&amp;amp;&amp;amp;Component</code> and auto-deref handles the rest.</div></li>
     <li data-n="21"><div>Does the source component's deploy.ini declare the target?</div></li>
-    <li data-n="22"><div><code>match conn</code> with <code>None</code>, then a guarded <code>Some(c) if c.kind == "DYNAMIC" &amp;amp;&amp;amp; …</code> further down (line 674), then <code>_ =&amp;gt; {}</code>. Missing and unguarded are two rules sharing one loop.</div></li>
+    <li data-n="22"><div><code>match conn</code> with a guarded <code>None if reaches(src, tgt)</code> first: a component reached through a chain of STATIC connections counts as declared, worked out once per component in <code>static_reach</code> above. Then plain <code>None</code>, then a guarded <code>Some(c) if c.kind == "DYNAMIC" &amp;amp;&amp;amp; …</code> further down (line 697), then <code>_ =&amp;gt; {}</code>. Missing and unguarded are two rules sharing one loop.</div></li>
     <li data-n="23"><div><code>if !seen.insert(…) { continue; }</code>: report each (file, target) pair once.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/analyze.rs" data-start="720" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/analyze.rs#L720-L746" data-mark="722:24,724:25,737:26">fn layers(idx: &amp;Index, out: &amp;mut Vec&lt;Finding&gt;) {
+  <pre class="code" data-file="crates/ifsdep-core/src/analyze.rs" data-start="743" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/analyze.rs#L743-L769" data-mark="745:24,747:25,760:26">fn layers(idx: &amp;Index, out: &amp;mut Vec&lt;Finding&gt;) {
     for f in &amp;idx.files {
         let Some(decl) = &amp;f.declared_layer else { continue };
         let decl_core = decl.eq_ignore_ascii_case("core");
@@ -2922,7 +3003,7 @@ fn duplicates(idx: &amp;Index, src: &amp;mut Source, out: &amp;mut Vec&lt;Findin
   <div class="stop-head"><span class="num"></span><h2>COLUMN_AMBIGUOUS, evidence, explicit lifetimes</h2></div>
   <div class="files">analyze.rs · upgrade.rs · tests/fixtures.rs</div>
   <div class="prose"><p>The column rule catches a subtle upgrade-style break: Cust adds a column to a Core view or table, and Core SQL that read an unprefixed column name now finds it in two relations, so Oracle fails with ORA-00918. Core files can't change, so the rule points at the Cust attribute to rename. It re-reads only the SQL files that read an affected relation.</p></div>
-  <pre class="code" data-file="crates/ifsdep-core/src/analyze.rs" data-start="55" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/analyze.rs#L55-L90" data-mark="56:1,60:2,70:3,71:4,73:5,74:6,80:7,81:8,85:9">fn ambiguous_columns(idx: &amp;Index, cols: &amp;Columns, src: &amp;mut Source, out: &amp;mut Vec&lt;Finding&gt;) {
+  <pre class="code" data-file="crates/ifsdep-core/src/analyze.rs" data-start="55" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/analyze.rs#L55-L90" data-mark="56:1,60:2,70:3,71:4,73:5,74:6,80:7,81:8,85:9">fn ambiguous_columns(idx: &amp;Index, cols: &amp;Columns, src: &amp;mut Source, out: &amp;mut Vec&lt;Finding&gt;) {
     if cols.added.is_empty() {
         return;
     }
@@ -2969,7 +3050,7 @@ fn duplicates(idx: &amp;Index, src: &amp;mut Source, out: &amp;mut Vec&lt;Findin
     <li data-n="8"><div>Is there <em>another</em> FROM item with that column? <code>|&amp;amp;(j, o)|</code> destructures the <code>&amp;amp;(usize, &amp;amp;FromItem)</code> that <code>find</code> passes in.</div></li>
     <li data-n="9"><div>Report each (line, column) pair only once.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/analyze.rs" data-start="155" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/analyze.rs#L155-L189" data-mark="157:10,162:11,163:12,168:13,173:14">/// Reads the source lines that evidence cites, loading each file once.
+  <pre class="code" data-file="crates/ifsdep-core/src/analyze.rs" data-start="155" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/analyze.rs#L155-L189" data-mark="157:10,162:11,163:12,168:13,173:14">/// Reads the source lines that evidence cites, loading each file once.
 #[derive(Default)]
 struct Source {
     files: HashMap&lt;usize, Vec&lt;String&gt;&gt;,
@@ -3021,10 +3102,10 @@ fn finding(severity: Severity, rule: &amp;str, title: impl Into&lt;String&gt;, m
     </ol>
     <p>With two reference inputs and no <code>self</code>, none of these apply, and leaving the lifetime off is error E0106.</p>
   </div>
-  <pre class="code" data-file="crates/ifsdep-core/src/analyze.rs" data-start="191" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/analyze.rs#L191-L193" data-mark="191:15">fn unit&lt;'a&gt;(idx: &amp;'a Index, id: &amp;str) -&gt; &amp;'a Unit {
+  <pre class="code" data-file="crates/ifsdep-core/src/analyze.rs" data-start="191" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/analyze.rs#L191-L193" data-mark="191:15">fn unit&lt;'a&gt;(idx: &amp;'a Index, id: &amp;str) -&gt; &amp;'a Unit {
     &amp;idx.units[id_index(id)]
 }</pre>
-  <pre class="code" data-file="crates/ifsdep-core/src/upgrade.rs" data-start="535" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/upgrade.rs#L535-L544" data-mark="537:16,538:17">/// `prefix` at the start of `s`, ignoring ASCII case: the rest. Never slices inside a
+  <pre class="code" data-file="crates/ifsdep-core/src/upgrade.rs" data-start="535" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/upgrade.rs#L535-L544" data-mark="537:16,538:17">/// `prefix` at the start of `s`, ignoring ASCII case: the rest. Never slices inside a
 /// multi-byte character.
 fn strip_ci&lt;'a&gt;(s: &amp;'a str, prefix: &amp;str) -&gt; Option&lt;&amp;'a str&gt; {
     s.get(..prefix.len()).filter(|head| head.eq_ignore_ascii_case(prefix)).map(|_| &amp;s[prefix.len()..])
@@ -3034,7 +3115,7 @@ fn strip_ci&lt;'a&gt;(s: &amp;'a str, prefix: &amp;str) -&gt; Option&lt;&amp;'a 
 fn strip_word&lt;'a&gt;(s: &amp;'a str, word: &amp;str) -&gt; Option&lt;&amp;'a str&gt; {
     strip_ci(s, word).filter(|rest| rest.starts_with(char::is_whitespace))
 }</pre>
-  <pre class="code" data-file="crates/ifsdep-core/tests/fixtures.rs" data-start="15" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/tests/fixtures.rs#L15-L17" data-mark="15:18">fn findings&lt;'a&gt;(idx: &amp;'a Index, rule: &amp;str) -&gt; Vec&lt;&amp;'a Finding&gt; {
+  <pre class="code" data-file="crates/ifsdep-core/tests/fixtures.rs" data-start="15" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/tests/fixtures.rs#L15-L17" data-mark="15:18">fn findings&lt;'a&gt;(idx: &amp;'a Index, rule: &amp;str) -&gt; Vec&lt;&amp;'a Finding&gt; {
     idx.findings.iter().filter(|f| f.rule == rule).collect()
 }</pre>
   <ol class="co">
@@ -3043,7 +3124,7 @@ fn strip_word&lt;'a&gt;(s: &amp;'a str, word: &amp;str) -&gt; Option&lt;&amp;'a 
     <li data-n="17"><div><code>s.get(..n)</code> returns <code>None</code> instead of panicking when <code>n</code> isn't a character boundary. Use it whenever an index comes from somewhere you don't control.</div></li>
     <li data-n="18"><div>A <code>Vec</code> of borrows, <code>Vec&amp;lt;&amp;amp;'a Finding&amp;gt;</code>: the test helpers return views into the index.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/analyze.rs" data-start="553" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/analyze.rs#L553-L566" data-mark="553:19,555:20">fn include_parents&lt;'a&gt;(adj: &amp;HashMap&lt;&amp;'a str, Vec&lt;(&amp;'a str, usize)&gt;&gt;, root: &amp;'a str) -&gt; HashMap&lt;&amp;'a str, (&amp;'a str, usize)&gt; {
+  <pre class="code" data-file="crates/ifsdep-core/src/analyze.rs" data-start="553" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/analyze.rs#L553-L566" data-mark="553:19,555:20">fn include_parents&lt;'a&gt;(adj: &amp;HashMap&lt;&amp;'a str, Vec&lt;(&amp;'a str, usize)&gt;&gt;, root: &amp;'a str) -&gt; HashMap&lt;&amp;'a str, (&amp;'a str, usize)&gt; {
     let mut parents = HashMap::new();
     let mut seen = HashSet::from([root]);
     let mut queue = VecDeque::from([root]);
@@ -3068,7 +3149,7 @@ fn strip_word&lt;'a&gt;(s: &amp;'a str, word: &amp;str) -&gt; Option&lt;&amp;'a 
   <div class="stop-head"><span class="num"></span><h2><code>Resolver&amp;lt;'a&amp;gt;</code>: <code>RefCell</code> and returning <code>'a</code></h2></div>
   <div class="files">crates/ifsdep-core/src/datatypes.rs (DATATYPE_MISMATCH rule) · build.rs</div>
   <div class="prose"><p>The datatype rule follows a value through functions, views and tables, which takes recursion. The <code>Resolver</code> struct borrows the whole index for <code>'a</code>, caches through <code>&amp;amp;self</code>, and hands out references that outlive its own methods.</p></div>
-  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="1018" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/build.rs#L1018-L1028" data-mark="1018:1,1021:2">    let mut inputs = datatypes::Inputs { entities: Vec::new(), views: Vec::new(), tables: Vec::new() };
+  <pre class="code" data-file="crates/ifsdep-core/src/build.rs" data-start="1063" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/build.rs#L1063-L1073" data-mark="1063:1,1066:2">    let mut inputs = datatypes::Inputs { entities: Vec::new(), views: Vec::new(), tables: Vec::new() };
     for (fi, p) in parsed.iter().enumerate() {
         match p {
             Parsed::Entity(e) =&gt; inputs.entities.push((fi, e)),
@@ -3079,7 +3160,7 @@ fn strip_word&lt;'a&gt;(s: &amp;'a str, word: &amp;str) -&gt; Option&lt;&amp;'a 
             _ =&gt; {}
         }
     }</pre>
-  <pre class="code" data-file="crates/ifsdep-core/src/datatypes.rs" data-start="59" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/datatypes.rs#L59-L63" data-mark="59:3">pub struct Inputs&lt;'a&gt; {
+  <pre class="code" data-file="crates/ifsdep-core/src/datatypes.rs" data-start="59" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/datatypes.rs#L59-L63" data-mark="59:3">pub struct Inputs&lt;'a&gt; {
     pub entities: Vec&lt;(usize, &amp;'a ParsedEntity)&gt;,
     pub views: Vec&lt;(usize, &amp;'a db::ViewDef)&gt;,
     pub tables: Vec&lt;(usize, &amp;'a db::TableDef)&gt;,
@@ -3089,7 +3170,7 @@ fn strip_word&lt;'a&gt;(s: &amp;'a str, word: &amp;str) -&gt; Option&lt;&amp;'a 
     <li data-n="2"><div><code>(fi, e)</code>, where <code>e</code> is <code>&amp;amp;ParsedEntity</code> because <code>parsed.iter()</code> yields references.</div></li>
     <li data-n="3"><div><code>Inputs&amp;lt;'a&amp;gt;</code> is a struct of borrowed views. It moves into <code>datatypes::run</code> while <code>parsed</code> stays alive in <code>try_index</code>, and the compiler checks that <code>parsed</code> outlives it.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/datatypes.rs" data-start="170" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/datatypes.rs#L170-L202" data-mark="171:4,173:5,194:6,196:7,198:8,201:9">struct Resolver&lt;'a&gt; {
+  <pre class="code" data-file="crates/ifsdep-core/src/datatypes.rs" data-start="170" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/datatypes.rs#L170-L202" data-mark="171:4,173:5,194:6,196:7,198:8,201:9">struct Resolver&lt;'a&gt; {
     idx: &amp;'a Index,
     /// LU (upper) → its entity files, Core first.
     lus: HashMap&lt;String, Vec&lt;(usize, &amp;'a ParsedEntity)&gt;&gt;,
@@ -3130,7 +3211,7 @@ impl&lt;'a&gt; Resolver&lt;'a&gt; {
     <li data-n="8"><div>For a <code>Copy</code> value like <code>usize</code>, <code>Cell&amp;lt;usize&amp;gt;</code> (<code>get</code>/<code>set</code>, no runtime borrow check) would also work. <code>RefCell</code> is the general tool.</div></li>
     <li data-n="9"><div><code>impl&amp;lt;'a&amp;gt; Resolver&amp;lt;'a&amp;gt;</code> declares the lifetime for the impl block. <code>new</code> takes <code>idx: &amp;amp;'a Index</code> and returns <code>Self</code>, which is <code>Resolver&amp;lt;'a&amp;gt;</code>.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/datatypes.rs" data-start="286" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/datatypes.rs#L286-L319" data-mark="287:10,297:11,298:12,304:13,308:14,309:15,312:16,317:17,318:18">    fn line(&amp;self, file: usize, line: usize) -&gt; String {
+  <pre class="code" data-file="crates/ifsdep-core/src/datatypes.rs" data-start="286" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/datatypes.rs#L286-L319" data-mark="287:10,297:11,298:12,304:13,308:14,309:15,312:16,317:17,318:18">    fn line(&amp;self, file: usize, line: usize) -&gt; String {
         let mut cache = self.lines.borrow_mut();
         let lines = cache.entry(file).or_insert_with(|| {
             std::fs::read(&amp;self.idx.files[file].abs_path)
@@ -3177,7 +3258,7 @@ impl&lt;'a&gt; Resolver&lt;'a&gt; {
   </ol>
 
   <div class="prose"><h3>The rule itself</h3><p>A derived attribute declares a <code>DATATYPE</code> (say <code>NUMBER</code>) but gets its value from somewhere else: an expression, another entity's column, or a hand-written view. <code>run</code> follows each one to where the value really comes from and compares the two. Every <code>Origin</code> carries the chain of declarations it passed through, which becomes the finding's evidence.</p></div>
-  <pre class="code" data-file="crates/ifsdep-core/src/datatypes.rs" data-start="672" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/datatypes.rs#L672-L710" data-mark="673:19,677:20,685:21,695:22,696:23,699:24,704:25,708:26">pub fn run(idx: &amp;Index, inputs: Inputs) -&gt; Vec&lt;Finding&gt; {
+  <pre class="code" data-file="crates/ifsdep-core/src/datatypes.rs" data-start="672" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/datatypes.rs#L672-L710" data-mark="673:19,677:20,685:21,695:22,696:23,699:24,704:25,708:26">pub fn run(idx: &amp;Index, inputs: Inputs) -&gt; Vec&lt;Finding&gt; {
     let r = Resolver::new(idx, &amp;inputs);
     let mut out = Vec::new();
 
@@ -3226,7 +3307,7 @@ impl&lt;'a&gt; Resolver&lt;'a&gt; {
     <li data-n="25"><div><code>Target</code> (line 713) stores <code>attr: &amp;amp;'a Attribute</code>, a borrow that lives in a <code>Vec</code> only while <code>run</code> runs.</div></li>
     <li data-n="26"><div><code>&amp;amp;mut out</code> where <code>places</code> wants <code>&amp;amp;mut [Finding]</code>: <code>&amp;amp;mut Vec</code> coerces to a mutable slice. <code>places</code> can change existing findings but can't add or remove any, and the signature says so.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/datatypes.rs" data-start="374" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/datatypes.rs#L374-L422" data-mark="375:27,381:28,387:29,400:30,402:31,405:32,416:33,419:34">    fn derived(&amp;self, f: usize, a: &amp;Attribute, lu: &amp;str) -&gt; Option&lt;Origin&gt; {
+  <pre class="code" data-file="crates/ifsdep-core/src/datatypes.rs" data-start="374" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/datatypes.rs#L374-L422" data-mark="375:27,381:28,387:29,400:30,402:31,405:32,416:33,419:34">    fn derived(&amp;self, f: usize, a: &amp;Attribute, lu: &amp;str) -&gt; Option&lt;Origin&gt; {
         if let Some(code) = &amp;a.implementation {
             let mut o = self.expr(code, &amp;[], Some(lu))?;
             o.steps.insert(0, (f, a.line, format!("DB_SQL_IMPLEMENTATION {}", code.split_whitespace().collect::&lt;Vec&lt;_&gt;&gt;().join(" "))));
@@ -3292,7 +3373,7 @@ impl&lt;'a&gt; Resolver&lt;'a&gt; {
   <div class="stop-head"><span class="num"></span><h2>Upgrade comparison: caches and a line diff</h2></div>
   <div class="files">crates/ifsdep-core/src/upgrade.rs · runs only with --prev-core</div>
   <div class="prose"><p>Given the previous Core, the upgrade check looks at every Cust override, finds the Core declaration it layers over, reads the same declaration from the old Core, and diffs the two. The severity depends on what changed: the signature (your override no longer matches) or just the body (your <code>@Overtake</code> copy is missing IFS's fix). The diff goes into the finding and the UI renders it.</p></div>
-  <pre class="code" data-file="crates/ifsdep-core/src/upgrade.rs" data-start="27" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/upgrade.rs#L27-L63" data-mark="28:1,29:2,33:3,36:4,45:5,46:6,47:7">pub fn run(idx: &amp;Index, prev: &amp;Path, out: &amp;mut Vec&lt;Finding&gt;, notes: &amp;mut Vec&lt;String&gt;) {
+  <pre class="code" data-file="crates/ifsdep-core/src/upgrade.rs" data-start="27" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/upgrade.rs#L27-L63" data-mark="28:1,29:2,33:3,36:4,45:5,46:6,47:7">pub fn run(idx: &amp;Index, prev: &amp;Path, out: &amp;mut Vec&lt;Finding&gt;, notes: &amp;mut Vec&lt;String&gt;) {
     let mut cache: HashMap&lt;String, Option&lt;String&gt;&gt; = HashMap::new();
     let mut read_prev = |rel: &amp;str| -&gt; Option&lt;String&gt; {
         cache
@@ -3338,7 +3419,7 @@ impl&lt;'a&gt; Resolver&lt;'a&gt; {
     <li data-n="6"><div>let-else with a tuple of two <code>Option</code>s: both ends must be objects.</div></li>
     <li data-n="7"><div>Only Cust over Core matters here: a Core override of Core is IFS's business.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/upgrade.rs" data-start="64" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/upgrade.rs#L64-L103" data-mark="64:8,65:9,75:10,76:11,95:12,97:13">        let (old_lines, now_lines) = (lines(&amp;old_text, old), lines(&amp;now_text, now));
+  <pre class="code" data-file="crates/ifsdep-core/src/upgrade.rs" data-start="64" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/upgrade.rs#L64-L103" data-mark="64:8,65:9,75:10,76:11,95:12,97:13">        let (old_lines, now_lines) = (lines(&amp;old_text, old), lines(&amp;now_text, now));
         if normalized(&amp;old_lines) == normalized(&amp;now_lines) {
             continue;
         }
@@ -3386,7 +3467,7 @@ impl&lt;'a&gt; Resolver&lt;'a&gt; {
     <li data-n="12"><div>Rebinding with <code>mut</code>: <code>let (mut severity, mut what, …) = (severity, what.to_string(), …)</code> shadows the immutable values with mutable ones for the adjustments below.</div></li>
     <li data-n="13"><div><code>against_copy(&amp;amp;mut diff, &amp;amp;ov_lines)</code>: <code>&amp;amp;mut Vec&amp;lt;DiffLine&amp;gt;</code> coerces to <code>&amp;amp;mut [DiffLine]</code> and <code>&amp;amp;Vec&amp;lt;&amp;amp;str&amp;gt;</code> to <code>&amp;amp;[&amp;amp;str]</code>. The function marks each diff line with whether your copy has it.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/upgrade.rs" data-start="569" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/upgrade.rs#L569-L615" data-mark="571:14,574:15,576:16,577:17,598:18,599:19,603:20">fn diff(old: &amp;[&amp;str], new: &amp;[&amp;str], old0: usize, new0: usize) -&gt; Vec&lt;DiffLine&gt; {
+  <pre class="code" data-file="crates/ifsdep-core/src/upgrade.rs" data-start="569" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/upgrade.rs#L569-L615" data-mark="571:14,574:15,576:16,577:17,598:18,599:19,603:20">fn diff(old: &amp;[&amp;str], new: &amp;[&amp;str], old0: usize, new0: usize) -&gt; Vec&lt;DiffLine&gt; {
     let (n, m) = (old.len(), new.len());
     if n * m &gt; MAX_DIFF_CELLS {
         return vec![DiffLine { op: "@".into(), text: format!("{n} lines before, {m} after: too big to compare line by line"), old: None, new: None, in_cust: None }];
@@ -3449,7 +3530,7 @@ impl&lt;'a&gt; Resolver&lt;'a&gt; {
   <div class="stop-head"><span class="num"></span><h2>Trace: <code>&amp;amp;mut</code> returns, <code>split_at_mut</code>, partial moves</h2></div>
   <div class="files">crates/ifsdep-core/src/trace.rs (the PL/SQL Trace view)</div>
   <div class="prose"><p>The trace builder keeps a stack of <code>Frame</code>s (IF, CASE, LOOP, blocks) and needs a mutable reference to "where the next step goes", which might be inside the top frame or the one below it.</p></div>
-  <pre class="code" data-file="crates/ifsdep-core/src/trace.rs" data-start="95" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/trace.rs#L95-L138" data-mark="96:1,113:2,116:3,118:4,127:5,129:6,130:7,134:8">impl Frame {
+  <pre class="code" data-file="crates/ifsdep-core/src/trace.rs" data-start="95" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/trace.rs#L95-L138" data-mark="96:1,113:2,116:3,118:4,127:5,129:6,130:7,134:8">impl Frame {
     fn new(kind: Kind, line: usize) -&gt; Self {
         Frame {
             kind,
@@ -3503,7 +3584,7 @@ fn sink(fr: &amp;mut [Frame]) -&gt; &amp;mut Vec&lt;TraceStep&gt; {
     <li data-n="7"><div><code>&amp;amp;mut last[0]</code>: <code>last</code> is a one-element slice holding the top frame.</div></li>
     <li data-n="8"><div>Recursing on the lower half, <code>head</code>, and returning its result straight up. The returned reference may point into either half, and both come from <code>fr</code>, so it matches the elided output lifetime.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/trace.rs" data-start="561" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/trace.rs#L561-L576" data-mark="561:9,562:10,564:11,566:12,568:13,571:14,572:15">fn close(fr: &amp;mut Vec&lt;Frame&gt;, cursors: &amp;mut HashMap&lt;String, Vec&lt;TraceStep&gt;&gt;) {
+  <pre class="code" data-file="crates/ifsdep-core/src/trace.rs" data-start="561" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/trace.rs#L561-L576" data-mark="561:9,562:10,564:11,566:12,568:13,571:14,572:15">fn close(fr: &amp;mut Vec&lt;Frame&gt;, cursors: &amp;mut HashMap&lt;String, Vec&lt;TraceStep&gt;&gt;) {
     let mut f = fr.pop().unwrap();
     // A condition still being read (unbalanced code): keep its calls.
     let leftover = std::mem::take(&amp;mut f.cond_steps);
@@ -3530,7 +3611,7 @@ fn sink(fr: &amp;mut [Frame]) -&gt; &amp;mut Vec&lt;TraceStep&gt; {
   </ol>
 
   <div class="prose"><h3>The main loop</h3><p><code>trace_method</code> tokenizes the method once, then walks the tokens. Each keyword either pushes a frame (IF, CASE, LOOP, BEGIN), adds an arm (ELSIF, ELSE, WHEN) or closes a frame (END). Calls and table use are pushed wherever <code>sink</code> says they belong.</p></div>
-  <pre class="code" data-file="crates/ifsdep-core/src/trace.rs" data-start="255" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/trace.rs#L255-L330" data-mark="255:16,265:17,266:18,267:19,270:20,302:21,303:22,308:23,321:24">    let call_step = |package: Option&lt;String&gt;, method: String, line: usize| TraceStep {
+  <pre class="code" data-file="crates/ifsdep-core/src/trace.rs" data-start="255" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/trace.rs#L255-L330" data-mark="255:16,265:17,266:18,267:19,270:20,302:21,303:22,308:23,321:24">    let call_step = |package: Option&lt;String&gt;, method: String, line: usize| TraceStep {
         kind: "call",
         line,
         package,
@@ -3617,7 +3698,7 @@ fn sink(fr: &amp;mut [Frame]) -&gt; &amp;mut Vec&lt;TraceStep&gt; {
     <li data-n="23"><div><code>while let Some((p, m, l, _)) = pending.pop()</code> drains a stack. A call runs after the calls in its arguments, so inner calls are recorded first.</div></li>
     <li data-n="24"><div><code>Vec::pop_if</code> (Rust 1.86) pops the last element only if the closure accepts it. The popped <code>Frame</code> is owned, and its fields move straight into the map.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/trace.rs" data-start="380" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/trace.rs#L380-L400" data-mark="381:25,384:26,390:27,392:28,393:29">        // Branches, blocks and loops.
+  <pre class="code" data-file="crates/ifsdep-core/src/trace.rs" data-start="380" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/trace.rs#L380-L400" data-mark="381:25,384:26,390:27,392:28,393:29">        // Branches, blocks and loops.
         let top = fr.len() - 1;
         match up {
             "IF" if prev != "END" =&gt; {
@@ -3652,7 +3733,7 @@ fn sink(fr: &amp;mut [Frame]) -&gt; &amp;mut Vec&lt;TraceStep&gt; {
   <div class="stop-head"><span class="num"></span><h2>Stamps: HashMaps of borrowed keys</h2></div>
   <div class="files">crates/ifsdep-core/src/stamp.rs</div>
   <div class="prose"><p>Small and tidy. It records each file's size and modified time so the app can tell what changed since the saved index (commit ee360e8).</p></div>
-  <pre class="code" data-file="crates/ifsdep-core/src/stamp.rs" data-start="44" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/stamp.rs#L44-L54" data-mark="47:1,49:2,51:3">/// Reads what `write` wrote; lines that don't parse are skipped.
+  <pre class="code" data-file="crates/ifsdep-core/src/stamp.rs" data-start="44" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/stamp.rs#L44-L54" data-mark="47:1,49:2,51:3">/// Reads what `write` wrote; lines that don't parse are skipped.
 pub fn read(text: &amp;str) -&gt; Vec&lt;Stamp&gt; {
     text.lines()
         .filter_map(|l| {
@@ -3668,7 +3749,7 @@ pub fn read(text: &amp;str) -&gt; Vec&lt;Stamp&gt; {
     <li data-n="2"><div><code>?</code> inside the closure: <code>p.next()?</code> (missing field) and <code>.parse().ok()?</code> (turn the <code>Result</code> into an <code>Option</code>, then bail out on failure). <code>parse()</code> infers <code>u64</code> from the struct field it ends up in.</div></li>
     <li data-n="3"><div>Field init shorthand: <code>size, modified</code> means <code>size: size, modified: modified</code>.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/stamp.rs" data-start="71" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/stamp.rs#L71-L84" data-mark="72:4,75:5,77:6,81:7,82:8">pub fn compare(saved: &amp;[Stamp], now: &amp;[Stamp]) -&gt; Changes {
+  <pre class="code" data-file="crates/ifsdep-core/src/stamp.rs" data-start="71" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/stamp.rs#L71-L84" data-mark="72:4,75:5,77:6,81:7,82:8">pub fn compare(saved: &amp;[Stamp], now: &amp;[Stamp]) -&gt; Changes {
     let before: HashMap&lt;&amp;str, &amp;Stamp&gt; = saved.iter().map(|s| (s.path.as_str(), s)).collect();
     let mut c = Changes::default();
     for s in now {
@@ -3696,7 +3777,7 @@ pub fn read(text: &amp;str) -&gt; Vec&lt;Stamp&gt; {
   <div class="stop-head"><span class="num"></span><h2>A hand-rolled serde: traits, generics, <code>macro_rules!</code></h2></div>
   <div class="files">crates/ifsdep-core/src/json.rs</div>
   <div class="prose"><p>This is what <code>#[derive(Serialize)]</code> does for you, written by hand in 180 lines. It's the best file in the repo for learning traits.</p></div>
-  <pre class="code" data-file="crates/ifsdep-core/src/json.rs" data-start="7" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/json.rs#L7-L15" data-mark="7:1,11:2">pub trait ToJson {
+  <pre class="code" data-file="crates/ifsdep-core/src/json.rs" data-start="7" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/json.rs#L7-L15" data-mark="7:1,11:2">pub trait ToJson {
     fn write_json(&amp;self, out: &amp;mut String);
 }
 
@@ -3705,7 +3786,7 @@ pub fn to_string&lt;T: ToJson + ?Sized&gt;(v: &amp;T) -&gt; String {
     v.write_json(&amp;mut s);
     s
 }</pre>
-  <pre class="code" data-file="crates/ifsdep-core/src/json.rs" data-start="35" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/json.rs#L35-L44" data-mark="35:3">impl ToJson for str {
+  <pre class="code" data-file="crates/ifsdep-core/src/json.rs" data-start="35" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/json.rs#L35-L44" data-mark="35:3">impl ToJson for str {
     fn write_json(&amp;self, out: &amp;mut String) {
         write_str(self, out)
     }
@@ -3720,7 +3801,7 @@ impl ToJson for String {
     <li data-n="2"><div><code>T: ToJson + ?Sized</code>. Generic parameters are <code>Sized</code> by default, meaning the size is known at compile time. <code>?Sized</code> relaxes that so <code>T</code> can be <code>str</code>, whose size isn't fixed. That's fine because <code>v</code> is behind a reference. This is <strong>static dispatch</strong>: the compiler makes a copy of <code>to_string</code> for each <code>T</code> it's called with (monomorphization). Compare the <code>dyn</code> callback in <a class="ref" href="#s-options"></a>.</div></li>
     <li data-n="3"><div>Implementing for <code>str</code> covers <code>&amp;amp;str</code> values too. There's a second impl for <code>String</code> because <code>Option&amp;lt;String&amp;gt;</code> fields need <code>String: ToJson</code> exactly.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/json.rs" data-start="45" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/json.rs#L45-L77" data-mark="46:4,52:5,58:6,66:7">macro_rules! json_num {
+  <pre class="code" data-file="crates/ifsdep-core/src/json.rs" data-start="45" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/json.rs#L45-L77" data-mark="46:4,52:5,58:6,66:7">macro_rules! json_num {
     ($($t:ty),*) =&gt; {$(
         impl ToJson for $t {
             fn write_json(&amp;self, out: &amp;mut String) { out.push_str(&amp;self.to_string()) }
@@ -3759,7 +3840,7 @@ impl&lt;T: ToJson&gt; ToJson for Vec&lt;T&gt; {
     <li data-n="6"><div>A <strong>generic impl</strong> (often called a blanket impl): "<code>Option&amp;lt;T&amp;gt;</code> is <code>ToJson</code> whenever <code>T</code> is". The trait system builds serializers for nested types like <code>Option&amp;lt;Vec&amp;lt;String&amp;gt;&amp;gt;</code> by combining the impls.</div></li>
     <li data-n="7"><div>The same for <code>Vec&amp;lt;T&amp;gt;</code>. <code>v.write_json(out)</code> calls whatever impl matches <code>T</code>, with no runtime type checks.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/json.rs" data-start="93" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/json.rs#L93-L124" data-mark="94:8,96:9,103:10,105:11,116:12">macro_rules! json_struct {
+  <pre class="code" data-file="crates/ifsdep-core/src/json.rs" data-start="93" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/json.rs#L93-L124" data-mark="94:8,96:9,103:10,105:11,116:12">macro_rules! json_struct {
     ($t:ty { $($field:ident),* $(,)? }) =&gt; {
         impl ToJson for $t {
             #[allow(unused_assignments)]
@@ -3791,7 +3872,7 @@ macro_rules! json_enum {
         }
     };
 }</pre>
-  <pre class="code" data-file="crates/ifsdep-core/src/json.rs" data-start="147" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/json.rs#L147-L150" data-mark="149:13">json_struct!(SourceFile { id, rel_path, abs_path, root, kind, component, declared_layer, unit, role, lines });
+  <pre class="code" data-file="crates/ifsdep-core/src/json.rs" data-start="147" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/json.rs#L147-L150" data-mark="149:13">json_struct!(SourceFile { id, rel_path, abs_path, root, kind, component, declared_layer, unit, role, lines });
 json_struct!(Unit { id, kind, name, component, origin, files, has_overlay });
 json_struct!(Object { id, unit, file, kind, name, line, modifier, section, target, dynamic, base, base_origin, base_generated, generated });
 json_struct!(Edge { id, from, to, kind, file, line, layer, dynamic, count, detail });</pre>
@@ -3813,7 +3894,7 @@ json_struct!(Edge { id, from, to, kind, file, line, layer, dynamic, count, detai
 <section class="stop" id="s-tauri" data-title="The Tauri shell: threads, statics, move closures" data-group="The two ways in" data-c="conc clos dyn life opt mod">
   <div class="stop-head"><span class="num"></span><h2>The Tauri shell: threads, statics, <code>move</code> closures</h2></div>
   <div class="files">src-tauri/src/main.rs · src-tauri/src/lib.rs</div>
-  <pre class="code" data-file="src-tauri/src/main.rs" data-start="1" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/src-tauri/src/main.rs#L1-L6" data-mark="2:1,5:2">// Prevents an extra console window on Windows in release builds.
+  <pre class="code" data-file="src-tauri/src/main.rs" data-start="1" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/src-tauri/src/main.rs#L1-L6" data-mark="2:1,5:2">// Prevents an extra console window on Windows in release builds.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
@@ -3823,7 +3904,7 @@ fn main() {
     <li data-n="1"><div><code>#![…]</code> with <code>!</code> is an <em>inner</em> attribute that applies to the whole crate. <code>cfg_attr(cond, attr)</code> applies the attribute only when <code>cond</code> is true: in release builds the app gets the Windows GUI subsystem (no console window).</div></li>
     <li data-n="2"><div><code>main</code> delegates to the library crate (<code>ifs_depmap_lib</code>), so the same code can also serve mobile entry points (<code>#[cfg_attr(mobile, tauri::mobile_entry_point)]</code> in <code>lib.rs</code>).</div></li>
   </ol>
-  <pre class="code" data-file="src-tauri/src/lib.rs" data-start="38" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/src-tauri/src/lib.rs#L38-L83" data-mark="39:3,43:4,47:5,52:6,57:7,58:8,64:9,65:10,67:11,74:12,76:13,81:14">/// Set by `cancel_index`; the indexer checks it between files and stages.
+  <pre class="code" data-file="src-tauri/src/lib.rs" data-start="38" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/src-tauri/src/lib.rs#L38-L83" data-mark="39:3,43:4,47:5,52:6,57:7,58:8,64:9,65:10,67:11,74:12,76:13,81:14">/// Set by `cancel_index`; the indexer checks it between files and stages.
 static CANCEL: AtomicBool = AtomicBool::new(false);
 
 #[tauri::command]
@@ -3883,7 +3964,7 @@ async fn index_folders(app: tauri::AppHandle, core: Option&lt;String&gt;, cust: 
     <li data-n="13"><div><code>if let Err(e) = …</code> handles only the failure. Failing to save is logged, and the index is still returned.</div></li>
     <li data-n="14"><div><code>spawn_blocking(…).await</code> yields <code>Result&amp;lt;Result&amp;lt;String, String&amp;gt;, JoinError&amp;gt;</code>. <code>.map_err(|e| e.to_string())?</code> unwraps the outer layer (did the thread panic?), and what's left, the closure's own <code>Result</code>, becomes the function's return value.</div></li>
   </ol>
-  <pre class="code" data-file="src-tauri/src/lib.rs" data-start="186" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/src-tauri/src/lib.rs#L186-L198" data-mark="190:15,192:16">#[tauri::command]
+  <pre class="code" data-file="src-tauri/src/lib.rs" data-start="186" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/src-tauri/src/lib.rs#L186-L198" data-mark="190:15,192:16">#[tauri::command]
 async fn check_saved(app: tauri::AppHandle, core: Option&lt;String&gt;, cust: Option&lt;String&gt;, prev_core: Option&lt;String&gt;) -&gt; Result&lt;String, String&gt; {
     tauri::async_runtime::spawn_blocking(move || {
         let (_, meta_path) = saved_files(&amp;app)?;
@@ -3900,7 +3981,7 @@ async fn check_saved(app: tauri::AppHandle, core: Option&lt;String&gt;, cust: Op
     <li data-n="15"><div><code>ok_or("no saved index")?</code> makes an error of type <code>&amp;amp;str</code>, but the closure returns <code>Result&amp;lt;_, String&amp;gt;</code>. <code>?</code> calls <code>From::from</code> on the error, and <code>impl From&amp;lt;&amp;amp;str&amp;gt; for String</code> exists, so it converts. That's what <code>?</code> does with any <code>From</code> impl.</div></li>
     <li data-n="16"><div>Converting <code>Vec&amp;lt;PathBuf&amp;gt;</code> to <code>Vec&amp;lt;&amp;amp;Path&amp;gt;</code> for a function that wants <code>&amp;amp;[&amp;amp;Path]</code>: <code>.iter().map(PathBuf::as_path).collect::&amp;lt;Vec&amp;lt;_&amp;gt;&amp;gt;()</code>. The <strong>turbofish</strong> <code>::&amp;lt;Vec&amp;lt;_&amp;gt;&amp;gt;</code> tells <code>collect</code> what to build, and <code>_</code> lets the element type be inferred.</div></li>
   </ol>
-  <pre class="code" data-file="src-tauri/src/lib.rs" data-start="238" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/src-tauri/src/lib.rs#L238-L245" data-mark="242:17,243:18">#[cfg_attr(mobile, tauri::mobile_entry_point)]
+  <pre class="code" data-file="src-tauri/src/lib.rs" data-start="238" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/src-tauri/src/lib.rs#L238-L245" data-mark="242:17,243:18">#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -3918,7 +3999,7 @@ pub fn run() {
 <section class="stop" id="s-cli" data-title="The CLI: argument parsing without a crate" data-group="The two ways in" data-c="opt pat iter own str">
   <div class="stop-head"><span class="num"></span><h2>The CLI: argument parsing without a crate</h2></div>
   <div class="files">crates/ifsdep-core/src/bin/ifsdep.rs</div>
-  <pre class="code" data-file="crates/ifsdep-core/src/bin/ifsdep.rs" data-start="53" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/bin/ifsdep.rs#L53-L89" data-mark="53:1,59:2,60:3,63:4,69:5,89:6">fn main() -&gt; ExitCode {
+  <pre class="code" data-file="crates/ifsdep-core/src/bin/ifsdep.rs" data-start="53" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/bin/ifsdep.rs#L53-L89" data-mark="53:1,59:2,60:3,63:4,69:5,89:6">fn main() -&gt; ExitCode {
     let mut core: Option&lt;PathBuf&gt; = None;
     let mut cust: Option&lt;PathBuf&gt; = None;
     let mut prev_core: Option&lt;PathBuf&gt; = None;
@@ -3963,7 +4044,7 @@ pub fn run() {
     <li data-n="5"><div><code>args.next().map(PathBuf::from)</code>: <code>Option&amp;lt;String&amp;gt;</code> becomes <code>Option&amp;lt;PathBuf&amp;gt;</code>, with the <code>From</code> impl used as a function.</div></li>
     <li data-n="6"><div><code>core.as_deref()</code> turns <code>&amp;amp;Option&amp;lt;PathBuf&amp;gt;</code> into <code>Option&amp;lt;&amp;amp;Path&amp;gt;</code>, exactly the borrowed form <code>IndexOptions&amp;lt;'a&amp;gt;</code> wants (<a class="ref" href="#s-options"></a>). The <code>PathBuf</code>s stay owned by <code>main</code> and outlive the call.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/bin/ifsdep.rs" data-start="98" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/bin/ifsdep.rs#L98-L130" data-mark="104:7,109:8,115:9,119:10,125:11">    for f in &amp;idx.findings {
+  <pre class="code" data-file="crates/ifsdep-core/src/bin/ifsdep.rs" data-start="98" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/bin/ifsdep.rs#L98-L130" data-mark="104:7,109:8,115:9,119:10,125:11">    for f in &amp;idx.findings {
         let sev = match f.severity {
             Severity::Error =&gt; "ERROR",
             Severity::Warning =&gt; "WARN ",
@@ -4010,7 +4091,7 @@ pub fn run() {
   <div class="stop-head"><span class="num"></span><h2>The other side: TypeScript reads the JSON</h2></div>
   <div class="files">ui/src/types.ts · ui/src/graphs.ts · ui/src/app.ts · ui/build.mjs · package.json</div>
   <div class="prose"><p>The Rust side ends at a JSON string. The UI is plain TypeScript with no runtime dependencies, and it draws its own SVG. Nothing checks that the two sides agree except you, so the TypeScript types copy the Rust model field for field. Here's where they meet.</p></div>
-  <pre class="code" data-file="ui/src/types.ts" data-start="1" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/ui/src/types.ts#L1-L23" data-mark="1:1,3:2,6:3,12:4">// Shapes of the JSON written by ifsdep-core (crates/ifsdep-core/src/json.rs).
+  <pre class="code" data-file="ui/src/types.ts" data-start="1" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/ui/src/types.ts#L1-L23" data-mark="1:1,3:2,6:3,12:4">// Shapes of the JSON written by ifsdep-core (crates/ifsdep-core/src/json.rs).
 
 type Layer = "Core" | "Cust";
 type Severity = "error" | "warning" | "info";
@@ -4039,7 +4120,7 @@ interface SourceFile {
     <li data-n="3"><div><code>EdgeKind</code> mirrors the 15 variants and their snake_case spellings from the <code>json_enum!(EdgeKind { … })</code> invocation.</div></li>
     <li data-n="4"><div><code>SourceFile</code> has the same fields as the Rust struct, because <code>stringify!($field)</code> used the Rust field names as JSON keys. <code>Option&amp;lt;String&amp;gt;</code> became <code>string | null</code>, and <code>usize</code> became <code>number</code>.</div></li>
   </ol>
-  <pre class="code" data-file="ui/src/types.ts" data-start="130" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/ui/src/types.ts#L130-L148" data-mark="130:5,146:6">interface GraphIndex {
+  <pre class="code" data-file="ui/src/types.ts" data-start="130" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/ui/src/types.ts#L130-L148" data-mark="130:5,146:6">interface GraphIndex {
   version: number;
   core_root: string | null;
   cust_root: string | null;
@@ -4062,7 +4143,7 @@ function idIndex(id: string): number {
     <li data-n="5"><div><code>GraphIndex</code> is <code>json_struct!(Index { … })</code> in TypeScript form. <code>stamps</code> is missing on purpose: the Rust macro call leaves it out (<a class="ref" href="#s-json"></a>), so it never reaches the UI.</div></li>
     <li data-n="6"><div><code>idIndex</code> is the TypeScript twin of <code>model::id_index</code>: <code>"u12"</code> → <code>12</code>, an index into <code>units</code>. The arena pattern crosses the language boundary unchanged.</div></li>
   </ol>
-  <pre class="code" data-file="ui/src/graphs.ts" data-start="101" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/ui/src/graphs.ts#L101-L136" data-mark="101:7,117:8,119:9,130:10,135:11">class Model {
+  <pre class="code" data-file="ui/src/graphs.ts" data-start="101" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/ui/src/graphs.ts#L101-L136" data-mark="101:7,117:8,119:9,130:10,135:11">class Model {
   idx: GraphIndex;
   findingsByNode = new Map&lt;string, Finding[]&gt;();
   findingsByComponent = new Map&lt;string, Finding[]&gt;();
@@ -4105,13 +4186,13 @@ function idIndex(id: string): number {
     <li data-n="10"><div><code>e.layer === "Cust"</code>: an edge written in a Cust file marks both ends as touched by Cust. That's how the "Cust only" filter works.</div></li>
     <li data-n="11"><div>Findings are indexed by node id, so a red node is a lookup in <code>findingsByNode</code>, which is filled from each finding's <code>nodes</code> list.</div></li>
   </ol>
-  <pre class="code" data-file="ui/src/app.ts" data-start="1" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/ui/src/app.ts#L1-L6" data-mark="5:12,6:13">// UI controller. Runs in the Tauri window (reads folders through Rust
+  <pre class="code" data-file="ui/src/app.ts" data-start="1" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/ui/src/app.ts#L1-L6" data-mark="5:12,6:13">// UI controller. Runs in the Tauri window (reads folders through Rust
 // commands) or in a plain browser (embedded sample data or a graph.json
 // written by `ifsdep --json`).
 
 const tauri: any = (window as any).__TAURI__;
 const invoke: ((cmd: string, args?: Record&lt;string, unknown&gt;) =&gt; Promise&lt;any&gt;) | undefined = tauri?.core?.invoke;</pre>
-  <pre class="code" data-file="ui/src/app.ts" data-start="165" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/ui/src/app.ts#L165-L183" data-mark="166:14,176:15,181:16">  // Indexing progress from the app shell: [stage, done, total].
+  <pre class="code" data-file="ui/src/app.ts" data-start="165" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/ui/src/app.ts#L165-L183" data-mark="166:14,176:15,181:16">  // Indexing progress from the app shell: [stage, done, total].
   tauri?.event?.listen?.("index-progress", (e: { payload: [string, number, number] }) =&gt; {
     [progress.stage, progress.done, progress.total] = e.payload;
     renderProgress();
@@ -4130,7 +4211,7 @@ const invoke: ((cmd: string, args?: Record&lt;string, unknown&gt;) =&gt; Promise
     if (demo?.textContent?.trim()) setIndex(JSON.parse(demo.textContent));
     else renderEmpty();
   }</pre>
-  <pre class="code" data-file="ui/src/app.ts" data-start="383" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/ui/src/app.ts#L383-L401" data-mark="391:17,393:18,401:19">async function reindex() {
+  <pre class="code" data-file="ui/src/app.ts" data-start="383" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/ui/src/app.ts#L383-L401" data-mark="391:17,393:18,401:19">async function reindex() {
   if (!invoke || ui.busy) return;
   ui.busy = true;
   Object.assign(progress, { stage: "Starting", done: 0, total: 0, started: performance.now() });
@@ -4159,7 +4240,7 @@ const invoke: ((cmd: string, args?: Record&lt;string, unknown&gt;) =&gt; Promise
     <li data-n="18"><div>The <code>Ok(String)</code> from Rust resolves the promise, and <code>JSON.parse</code> rebuilds the index.</div></li>
     <li data-n="19"><div><code>String(e) === "cancelled"</code> matches the <code>Err("cancelled".to_string())</code> from <code>map_err</code> in Rust. Errors cross the bridge as plain strings.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/json.rs" data-start="17" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/json.rs#L17-L33" data-mark="28:20">pub fn write_str(s: &amp;str, out: &amp;mut String) {
+  <pre class="code" data-file="crates/ifsdep-core/src/json.rs" data-start="17" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/json.rs#L17-L33" data-mark="28:20">pub fn write_str(s: &amp;str, out: &amp;mut String) {
     out.push('"');
     for c in s.chars() {
         match c {
@@ -4176,7 +4257,7 @@ const invoke: ((cmd: string, args?: Record&lt;string, unknown&gt;) =&gt; Promise
     }
     out.push('"');
 }</pre>
-  <pre class="code" data-file="package.json" data-start="6" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/package.json#L6-L12" data-mark="8:21">  "scripts": {
+  <pre class="code" data-file="package.json" data-start="6" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/package.json#L6-L12" data-mark="8:21">  "scripts": {
     "build:ui": "node ui/build.mjs",
     "demo": "cargo run -q --bin ifsdep -- --core fixtures/core --cust fixtures/cust --json ui/.build/graph.json &amp;&amp; node ui/build.mjs --demo ui/.build/graph.json",
     "pages": "npm run demo &amp;&amp; node -e \"require('fs').copyFileSync('ui/dist/demo.html', '../docs/index.html')\"",
@@ -4193,8 +4274,8 @@ const invoke: ((cmd: string, args?: Record&lt;string, unknown&gt;) =&gt; Promise
 <section class="stop" id="s-tests" data-title="Tests: unit, integration, fixtures" data-group="Proof" data-c="test mod str">
   <div class="stop-head"><span class="num"></span><h2>Tests: unit, integration, fixtures</h2></div>
   <div class="files">crates/ifsdep-core/tests/fixtures.rs · src/marble.rs</div>
-  <div class="prose"><p><code>cargo test</code> in <code>crates/ifsdep-core</code> runs 49 tests: 25 unit tests inside <code>src/</code> and 24 integration tests in <code>tests/fixtures.rs</code>. I ran them for this walkthrough and all pass.</p></div>
-  <pre class="code" data-file="crates/ifsdep-core/tests/fixtures.rs" data-start="1" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/tests/fixtures.rs#L1-L13" data-mark="1:1,5:2,9:3,12:4">//! End-to-end checks against the synthetic Core + Cust trees in /fixtures.
+  <div class="prose"><p><code>cargo test</code> in <code>crates/ifsdep-core</code> runs 60 tests: 27 unit tests inside <code>src/</code>, and 33 integration tests, 24 in <code>tests/fixtures.rs</code> and 9 in <code>tests/ai.rs</code>. I ran them for this walkthrough and all pass.</p></div>
+  <pre class="code" data-file="crates/ifsdep-core/tests/fixtures.rs" data-start="1" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/tests/fixtures.rs#L1-L13" data-mark="1:1,5:2,9:3,12:4">//! End-to-end checks against the synthetic Core + Cust trees in /fixtures.
 //! Each problem is planted on purpose; the assertions say what the tool must
 //! find and, as importantly, what it must not flag.
 
@@ -4213,7 +4294,7 @@ fn fixtures() -&gt; Index {
     <li data-n="3"><div><code>env!("CARGO_MANIFEST_DIR")</code> is read <em>at compile time</em>: the crate's folder, so the fixtures are found no matter where <code>cargo test</code> is run from.</div></li>
     <li data-n="4"><div><code>Some(&amp;amp;core)</code>: <code>&amp;amp;PathBuf</code> coerces to the <code>&amp;amp;Path</code> that <code>IndexOptions</code> wants. <code>..Default::default()</code> leaves <code>cancel</code> and <code>progress</code> as <code>None</code>.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/tests/fixtures.rs" data-start="29" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/tests/fixtures.rs#L29-L34" data-mark="29:5,33:6">
+  <pre class="code" data-file="crates/ifsdep-core/tests/fixtures.rs" data-start="29" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/tests/fixtures.rs#L29-L34" data-mark="29:5,33:6">
 fn object&lt;'a&gt;(idx: &amp;'a Index, unit: &amp;str, name: &amp;str, modifier: bool) -&gt; &amp;'a Object {
     idx.objects
         .iter()
@@ -4223,7 +4304,7 @@ fn object&lt;'a&gt;(idx: &amp;'a Index, unit: &amp;str, name: &amp;str, modifier
     <li data-n="5"><div>A lifetime on a test helper: the found <code>&amp;amp;Object</code> borrows from <code>idx</code>, not from the name strings.</div></li>
     <li data-n="6"><div><code>unwrap_or_else(|| panic!(…))</code> rather than <code>expect(&amp;amp;format!(…))</code>: the message is formatted only when the test fails.</div></li>
   </ol>
-  <pre class="code" data-file="crates/ifsdep-core/src/marble.rs" data-start="410" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/marble.rs#L410-L416" data-mark="411:7,414:8">#[cfg(test)]
+  <pre class="code" data-file="crates/ifsdep-core/src/marble.rs" data-start="424" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/marble.rs#L424-L430" data-mark="425:7,428:8">#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -4249,30 +4330,30 @@ cargo test -- --nocapture  # show println! output</pre>
   <div class="files">fixtures/cust/shpord/model/shpord/ · then every stage</div>
   <div class="prose"><p>The fixtures plant an include cycle that exists only once the Cust layer is applied. Here it is from the two files to the red nodes on screen. Every value below is real: I ran the CLI on the fixtures and read the JSON it wrote.</p>
   <h3>1. The files</h3></div>
-  <pre class="code" data-file="fixtures/cust/shpord/model/shpord/ShopOrderCommon-Cust.fragment" data-start="1" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/fixtures/cust/shpord/model/shpord/ShopOrderCommon-Cust.fragment#L1-L7" data-mark="1:1,3:2,6:3">fragment ShopOrderCommon;
+  <pre class="code" data-file="fixtures/cust/shpord/model/shpord/ShopOrderCommon-Cust.fragment" data-start="1" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/fixtures/cust/shpord/model/shpord/ShopOrderCommon-Cust.fragment#L1-L7" data-mark="1:1,3:2,6:3">fragment ShopOrderCommon;
 component SHPORD;
 layer Cust;
 description "Customer additions to shared shop order constructs";
 
 include fragment TiShopOrderExtras;
 include fragment QualityInspectionLovSelector;</pre>
-  <pre class="code" data-file="fixtures/cust/shpord/model/shpord/TiShopOrderExtras-Cust.fragment" data-start="1" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/fixtures/cust/shpord/model/shpord/TiShopOrderExtras-Cust.fragment#L1-L6" data-mark="6:4">fragment TiShopOrderExtras;
+  <pre class="code" data-file="fixtures/cust/shpord/model/shpord/TiShopOrderExtras-Cust.fragment" data-start="1" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/fixtures/cust/shpord/model/shpord/TiShopOrderExtras-Cust.fragment#L1-L6" data-mark="6:4">fragment TiShopOrderExtras;
 component SHPORD;
 layer Cust;
 description "Pure Cust fragment with extra shop order helpers";
 
 include fragment ShopOrderCommon;</pre>
   <ol class="co">
-    <li data-n="1"><div>The header uses the <em>base</em> name, <code>ShopOrderCommon</code>, so this file joins the Core <code>ShopOrderCommon.fragment</code> as an overlay.</div></li>
+    <li data-n="1"><div>The header uses the <em>base</em> name, <code>ShopOrderCommon</code>, so this file joins the Core <code>ShopOrderCommon.fragment</code> in one unit.</div></li>
     <li data-n="2"><div>It declares <code>layer Cust;</code>. That's only checked (LAYER_MISMATCH), never trusted: the layer comes from the folder.</div></li>
-    <li data-n="3"><div>The overlay includes a pure Cust fragment…</div></li>
+    <li data-n="3"><div>The -Cust file includes a pure Cust fragment…</div></li>
     <li data-n="4"><div>…which includes ShopOrderCommon back. Neither include exists in Core.</div></li>
   </ol>
   <div class="prose">
     <h3>2. Scan and parse (stage 1)</h3>
     <p><code>scan_root</code> (<a class="ref" href="#s-scan"></a>) finds both under <code>fixtures/cust</code>, so <code>root = Layer::Cust</code>, and <code>FileKind::from_path</code> says <code>Fragment</code>. <code>marble::parse</code> (<a class="ref" href="#s-marble"></a>) returns a <code>ParsedMarble</code> with <code>name: Some("ShopOrderCommon")</code> and one <code>Include { name: "TiShopOrderExtras", line: 6, dynamic: None }</code>, from this arm:</p>
   </div>
-  <pre class="code" data-file="crates/ifsdep-core/src/marble.rs" data-start="156" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/src/marble.rs#L156-L166" data-mark="157:5,159:6">                    "include" =&gt; {
+  <pre class="code" data-file="crates/ifsdep-core/src/marble.rs" data-start="165" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/src/marble.rs#L165-L175" data-mark="166:5,168:6">                    "include" =&gt; {
                         if words.get(1).is_some_and(|w| w.eq_ignore_ascii_case("fragment")) {
                             if let Some(n) = words.get(2) {
                                 out.includes.push(Include {
@@ -4289,15 +4370,15 @@ include fragment ShopOrderCommon;</pre>
   </ol>
   <div class="prose">
     <h3>3. Group (stage 2)</h3>
-    <p>The key <code>(UnitKind::Fragment, "SHOPORDERCOMMON")</code> already exists from the Core file, so the Cust file joins unit <code>u12</code> as an <code>Overlay</code>, and <code>u12.has_overlay</code> becomes true. <code>TiShopOrderExtras</code> is new, so it becomes <code>u17</code> with <code>origin: Cust</code> (<a class="ref" href="#s-group"></a>). In the JSON:</p>
-    <pre class="json">u12 {"kind":"fragment","name":"ShopOrderCommon","origin":"Core","files":[19,35],"has_overlay":true}
-u17 {"kind":"fragment","name":"TiShopOrderExtras","origin":"Cust","files":[37],"has_overlay":false}</pre>
+    <p>The key <code>(UnitKind::Fragment, "SHOPORDERCOMMON")</code> already exists from the Core file, so the Cust file joins unit <code>u14</code> as an <code>Overlay</code>, and <code>u14.has_overlay</code> becomes true. <code>TiShopOrderExtras</code> is new, so it becomes <code>u19</code> with <code>origin: Cust</code> (<a class="ref" href="#s-group"></a>). In the JSON:</p>
+    <pre class="json">u14 {"kind":"fragment","name":"ShopOrderCommon","origin":"Core","files":[21,37],"has_overlay":true}
+u19 {"kind":"fragment","name":"TiShopOrderExtras","origin":"Cust","files":[39],"has_overlay":false}</pre>
     <h3>4. Edges (stage 4)</h3>
-    <p>For file 35 (the overlay), <code>lookup(UnitKind::Fragment, "TISHOPORDEREXTRAS")</code> succeeds. The file is in Cust, so pure Cust units are visible to it (<a class="ref" href="#s-edges"></a>, point 4). Two <code>Include</code> edges come out, both written in Cust files:</p>
-    <pre class="json">edge 17 {"from":"u12","to":"u17","kind":"include","file":35,"line":6,"layer":"Cust"}
-edge 20 {"from":"u17","to":"u12","kind":"include","file":37,"line":6,"layer":"Cust"}</pre>
+    <p>For file 37 (the -Cust file), <code>lookup(UnitKind::Fragment, "TISHOPORDEREXTRAS")</code> succeeds. The file is in Cust, so pure Cust units are visible to it (<a class="ref" href="#s-edges"></a>, point 4). Two <code>Include</code> edges come out, both written in Cust files:</p>
+    <pre class="json">edge 19 {"from":"u14","to":"u19","kind":"include","file":37,"line":6,"layer":"Cust"}
+edge 22 {"from":"u19","to":"u14","kind":"include","file":39,"line":6,"layer":"Cust"}</pre>
     <h3>5. The CYCLE rule (stage 7)</h3>
-    <p><code>cycles()</code> (<a class="ref" href="#s-graph"></a>) builds the Core-only graph, which has no edge 17 or 20, so <code>u12</code> and <code>u17</code> are in no Core cycle. On the full graph, Tarjan returns the SCC <code>{u12, u17}</code>. Because it isn't Core-only, the title is "appears with Cust layer", and the suggested break is the first Cust hop, edge 17 at <code>ShopOrderCommon-Cust.fragment:6</code>.</p>
+    <p><code>cycles()</code> (<a class="ref" href="#s-graph"></a>) builds the Core-only graph, which has no edge 19 or 20, so <code>u14</code> and <code>u19</code> are in no Core cycle. On the full graph, Tarjan returns the SCC <code>{u14, u19}</code>. Because it isn't Core-only, the title is "appears with Cust layer", and the suggested break is the first Cust hop, edge 19 at <code>ShopOrderCommon-Cust.fragment:6</code>.</p>
     <h3>6. Finishing (stage 7)</h3>
     <p>The location is in a Cust file, so <code>involves_cust = true</code>. The findings are sorted (errors first, then by rule and message), and this one gets the id <code>f2</code> (<a class="ref" href="#s-dyn"></a>).</p>
     <h3>7. JSON</h3>
@@ -4305,17 +4386,17 @@ edge 20 {"from":"u17","to":"u12","kind":"include","file":37,"line":6,"layer":"Cu
     <pre class="json">{"id":"f2","severity":"error","rule":"CYCLE",
  "title":"Circular include (appears with Cust layer)",
  "message":"ShopOrderCommon → TiShopOrderExtras → ShopOrderCommon",
- "nodes":["u12","u17"],"edges":[17,20],
- "location":{"file":35,"line":6},
+ "nodes":["u14","u19"],"edges":[19,22],
+ "location":{"file":37,"line":6},
  "suggestion":{"summary":"Break the loop at ShopOrderCommon → TiShopOrderExtras: …",
    "snippet":"-- shpord/model/shpord/ShopOrderCommon-Cust.fragment:6\n- include fragment TiShopOrderExtras;\n…",
    "target":"shpord/model/shpord/ShopOrderCommon-Cust.fragment"},
  "evidence":[],"involves_cust":true,"diff":null,"upgrade":false}</pre>
     <h3>8. On screen</h3>
-    <p>The UI's <code>Model.indexFindings</code> (<a class="ref" href="#s-ui"></a>) files <code>f2</code> under <code>u12</code> and <code>u17</code>, so both nodes take the error color. <code>edges: [17, 20]</code> highlights the loop, and <code>location</code> becomes an <em>Open</em> button that calls Rust's <code>open_in_editor</code> with the absolute path of file 35 and line 6.</p>
+    <p>The UI's <code>Model.indexFindings</code> (<a class="ref" href="#s-ui"></a>) files <code>f2</code> under <code>u14</code> and <code>u19</code>, so both nodes take the error color. <code>edges: [19, 22]</code> highlights the loop, and <code>location</code> becomes an <em>Open</em> button that calls Rust's <code>open_in_editor</code> with the absolute path of file 37 and line 6.</p>
     <h3>9. The test that pins it down</h3>
   </div>
-  <pre class="code" data-file="crates/ifsdep-core/tests/fixtures.rs" data-start="71" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/tests/fixtures.rs#L71-L92" data-mark="74:7,81:8,87:9,89:10">#[test]
+  <pre class="code" data-file="crates/ifsdep-core/tests/fixtures.rs" data-start="71" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/715ab8940463054bc715f994bc87a287a00873e5/ifs-depmap/crates/ifsdep-core/tests/fixtures.rs#L71-L92" data-mark="74:7,81:8,87:9,89:10">#[test]
 fn finds_all_three_cycles_and_classifies_them() {
     let idx = fixtures();
     let cycles = findings(&amp;idx, "CYCLE");
@@ -4328,9 +4409,9 @@ fn finds_all_three_cycles_and_classifies_them() {
     let cust_loop = cycles
         .iter()
         .find(|f| unit_names(&amp;idx, f) == ["ShopOrderCommon", "TiShopOrderExtras"])
-        .expect("cycle that only exists with the Cust overlay applied");
+        .expect("cycle that only exists with the -Cust file added");
     assert!(cust_loop.title.contains("Cust"));
-    // The break point is the include in the Cust overlay, not the Core file.
+    // The break point is the include in the -Cust file, not the Core file.
     let loc = cust_loop.location.as_ref().unwrap();
     assert_eq!(idx.files[loc.file].rel_path, "shpord/model/shpord/ShopOrderCommon-Cust.fragment");
     assert!(cust_loop.suggestion.as_ref().unwrap().snippet.as_ref().unwrap().contains("- include fragment TiShopOrderExtras;"));
