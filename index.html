@@ -187,7 +187,7 @@ table.cheat th { font: 600 .72rem var(--f-code); letter-spacing: .06em; text-tra
 <div class="shell">
 <nav class="route" aria-label="Stops">
   <details open>
-    <summary><div class="brand">IFS Dependency Map, read as Rust<small>a field guide to your code</small></div></summary>
+    <summary><div class="brand">IFS Dependency Map, read as Rust<small>a walkthrough of the code</small></div></summary>
     <div class="progress"><span id="progress-text">0 stops read</span><div class="bar"><i id="progress-bar"></i></div></div>
     <ol id="route-list"></ol>
   </details>
@@ -197,7 +197,7 @@ table.cheat th { font: 600 .72rem var(--f-code); letter-spacing: .06em; text-tra
 <header class="hero">
   <div class="eyebrow">ifs-depmap · ifsdep-core 0.2.0 · edition 2021 · std only</div>
   <h1>How the indexer works, one Rust idea at a time</h1>
-  <p>This guide walks through the whole IFS Dependency Map in the order data moves through it: folders become files, files become parsed records, records become units, objects and edges, those become findings, and findings become JSON that the TypeScript UI draws. Nothing in the pipeline is skipped. Every source file in <code>crates/ifsdep-core/src</code> and <code>src-tauri/src</code> has a stop, and the last stop follows one real finding through all of them. Stop 1 is the map: read it first.</p>
+  <p>This walkthrough covers the whole IFS Dependency Map in the order data moves through it: folders become files, files become parsed records, records become units, objects and edges, those become findings, and findings become JSON that the TypeScript UI draws. Nothing in the pipeline is skipped. Every source file in <code>crates/ifsdep-core/src</code> and <code>src-tauri/src</code> has a stop, and the last stop follows one real finding through all of them. Stop 1 is the map: read it first.</p>
   <p>Every code block is copied by line number from <a href="https://github.com/phbronson999/ifs-dependency-map">phbronson999/ifs-dependency-map</a> at commit <a href="https://github.com/phbronson999/ifs-dependency-map/tree/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/">56f40b8</a> when the page is built, so what you see is exactly what's in that version of the code. Numbered badges on the code match the notes under it.</p>
   <p class="how">Click a badge or a note to jump between them. <kbd>J</kbd> and <kbd>K</kbd> move between stops. Pick a concept below to see only the stops that teach it. <em>View on GitHub</em> opens the same lines at that commit. <em>Open in VS Code</em> works on a machine with the project checked out at <code>C:\devstudio</code>.</p>
 
@@ -4178,7 +4178,7 @@ const invoke: ((cmd: string, args?: Record&lt;string, unknown&gt;) =&gt; Promise
 <section class="stop" id="s-tests" data-title="Tests: unit, integration, fixtures" data-group="Proof" data-c="test mod str">
   <div class="stop-head"><span class="num"></span><h2>Tests: unit, integration, fixtures</h2></div>
   <div class="files">crates/ifsdep-core/tests/fixtures.rs · src/marble.rs</div>
-  <div class="prose"><p><code>cargo test</code> in <code>crates/ifsdep-core</code> runs 49 tests: 25 unit tests inside <code>src/</code> and 24 integration tests in <code>tests/fixtures.rs</code>. I ran them for this guide and all pass.</p></div>
+  <div class="prose"><p><code>cargo test</code> in <code>crates/ifsdep-core</code> runs 49 tests: 25 unit tests inside <code>src/</code> and 24 integration tests in <code>tests/fixtures.rs</code>. I ran them for this walkthrough and all pass.</p></div>
   <pre class="code" data-file="crates/ifsdep-core/tests/fixtures.rs" data-start="1" data-gh="https://github.com/phbronson999/ifs-dependency-map/blob/56f40b897a1e5fb1a883fcf6275a63f316d1176c/ifs-depmap/crates/ifsdep-core/tests/fixtures.rs#L1-L13" data-mark="1:1,5:2,9:3,12:4">//! End-to-end checks against the synthetic Core + Cust trees in /fixtures.
 //! Each problem is planted on purpose; the assertions say what the tool must
 //! find and, as importantly, what it must not flag.

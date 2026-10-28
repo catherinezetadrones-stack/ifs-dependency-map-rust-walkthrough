@@ -6,7 +6,7 @@ that indexes IFS Cloud Core and Cust source into one dependency graph and flags 
 
 **Read it here: https://catherinezetadrones-stack.github.io/ifs-dependency-map-rust-walkthrough/**
 
-The guide follows the data through the whole program, from the folder scan and parsers through name
+The walkthrough follows the data through the whole program, from the folder scan and parsers through name
 resolution and the rules to the JSON the UI draws. Along the way it explains the Rust each step uses:
 ownership and moves, borrowing, lifetimes, closures, trait objects, `Rc` and `RefCell`. The last stop
 follows one real finding end to end.
@@ -27,5 +27,5 @@ node learn/build.mjs
 The script stops if a line range no longer fits its file, or if an excerpted file has uncommitted changes
 (the GitHub links would then show other lines).
 
-- `walkthrough.src.html`: the guide's text and which lines each code block shows
+- `walkthrough.src.html`: the walkthrough's text and which lines each code block shows
 - `build.mjs`: fills in the code and writes `index.html`
