@@ -1,0 +1,1618 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ifsdep Rust Field Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a sticky route map on the left (the stops, in the order data flows), the stop being read on the right. */
+:root {
+  --bg: #eef1f4;
+  --panel: #ffffff;
+  --ink: #18212b;
+  --muted: #5a6573;
+  --line: #d6dce3;
+  --accent: #a8481c;
+  --accent-ink: #ffffff;
+  --accent-soft: #f5e2d7;
+  --code-bg: #f8f9fb;
+  --mark-bg: #fff1c7;
+  --mark-edge: #d9a400;
+  --ok: #2f7a4a;
+  --t-kw: #8a2f9a;
+  --t-str: #2f7a4a;
+  --t-com: #7b8794;
+  --t-doc: #6a7f5a;
+  --t-ty: #1f5f9e;
+  --t-mac: #a8481c;
+  --t-lt: #b0367a;
+  --t-num: #9a5b00;
+  --t-fn: #22566b;
+  --t-attr: #7b8794;
+  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --f-code: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11161c; --panel: #171e26; --ink: #e2e7ed; --muted: #95a1ae; --line: #2a343f;
+    --accent: #e8915f; --accent-ink: #1a1009; --accent-soft: #3b2619; --code-bg: #0f141a;
+    --mark-bg: #3a3218; --mark-edge: #c9971a; --ok: #6cc28c;
+    --t-kw: #d49ae0; --t-str: #8fd19e; --t-com: #6f7c8a; --t-doc: #93a883; --t-ty: #7fb6ec;
+    --t-mac: #f0a27a; --t-lt: #f08cc0; --t-num: #e3b56b; --t-fn: #8cc7d9; --t-attr: #6f7c8a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11161c; --panel: #171e26; --ink: #e2e7ed; --muted: #95a1ae; --line: #2a343f;
+  --accent: #e8915f; --accent-ink: #1a1009; --accent-soft: #3b2619; --code-bg: #0f141a;
+  --mark-bg: #3a3218; --mark-edge: #c9971a; --ok: #6cc28c;
+  --t-kw: #d49ae0; --t-str: #8fd19e; --t-com: #6f7c8a; --t-doc: #93a883; --t-ty: #7fb6ec;
+  --t-mac: #f0a27a; --t-lt: #f08cc0; --t-num: #e3b56b; --t-fn: #8cc7d9; --t-attr: #6f7c8a;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-padding-top: 16px; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 16px/1.6 var(--f-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+a { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+code { font-family: var(--f-code); font-size: .86em; background: var(--code-bg); border: 1px solid var(--line); padding: 0 .3em; border-radius: 4px; overflow-wrap: anywhere; }
+h1, h2, h3 { font-family: var(--f-display); line-height: 1.15; text-wrap: balance; margin: 0; }
+
+.shell { display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 32px; max-width: 1280px; margin: 0 auto; padding-block: 24px 80px; }
+nav.route { position: sticky; top: 16px; align-self: start; max-height: calc(100vh - 32px); overflow: auto; padding-right: 4px; }
+.brand { font-family: var(--f-display); font-weight: 700; font-size: 1.15rem; letter-spacing: -.01em; }
+.brand small { display: block; font: 500 .72rem/1.3 var(--f-code); color: var(--muted); letter-spacing: .04em; text-transform: uppercase; margin-top: 2px; }
+.route ol { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 1px; }
+.route .grp { font: 600 .68rem/1 var(--f-code); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 14px 0 6px; }
+.route a.stop { display: grid; grid-template-columns: 26px 1fr 14px; gap: 8px; align-items: baseline; padding: 5px 8px; border-radius: 6px; color: var(--ink); text-decoration: none; font-size: .9rem; line-height: 1.3; }
+.route a.stop .n { font: 600 .74rem var(--f-code); color: var(--muted); font-variant-numeric: tabular-nums; }
+.route a.stop .done { color: var(--ok); font-size: .8rem; visibility: hidden; }
+.route a.stop.read .done { visibility: visible; }
+.route a.stop:hover { background: var(--panel); }
+.route a.stop.here { background: var(--accent-soft); }
+.route a.stop.here .n { color: var(--accent); }
+.route a.stop.dim { opacity: .3; }
+.progress { margin-top: 12px; font-size: .8rem; color: var(--muted); }
+.bar { height: 4px; background: var(--line); border-radius: 2px; margin-top: 4px; overflow: hidden; }
+.bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+
+main { min-width: 0; }
+.hero { padding: 8px 0 24px; border-bottom: 1px solid var(--line); }
+.hero .eyebrow { font: 600 .72rem var(--f-code); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+.hero h1 { font-size: clamp(2rem, 4.2vw, 3.1rem); letter-spacing: -.02em; margin-top: 8px; }
+.hero p { max-width: 68ch; color: var(--ink); }
+.hero .how { color: var(--muted); font-size: .92rem; }
+kbd { font: 600 .78em var(--f-code); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 .35em; background: var(--panel); }
+
+.flow { display: flex; flex-wrap: wrap; align-items: stretch; gap: 6px; margin: 20px 0 8px; }
+.flow a { flex: 1 1 140px; min-width: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; text-decoration: none; color: var(--ink); }
+.flow a:hover { border-color: var(--accent); }
+.flow b { display: block; font: 600 .78rem var(--f-code); color: var(--accent); }
+.flow span { font-size: .84rem; color: var(--muted); line-height: 1.35; display: block; }
+.flow .arrow { flex: 0 0 auto; align-self: center; color: var(--muted); font-family: var(--f-code); }
+
+.concepts { margin: 20px 0 0; }
+.concepts h2 { font-size: 1rem; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.chip { font: 500 .8rem var(--f-body); border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 999px; padding: 3px 11px; cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.chip .c { font-family: var(--f-code); font-size: .72rem; opacity: .7; margin-left: 4px; }
+.filter-note { font-size: .84rem; color: var(--muted); margin-top: 8px; min-height: 1.3em; }
+
+section.stop { padding: 40px 0 8px; border-bottom: 1px solid var(--line); }
+section.stop.dim { opacity: .35; }
+.stop-head { display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap; }
+.stop-head .num { font: 700 .9rem var(--f-code); color: var(--accent-ink); background: var(--accent); border-radius: 6px; padding: 2px 8px; font-variant-numeric: tabular-nums; }
+.stop-head h2 { font-size: clamp(1.4rem, 2.6vw, 1.85rem); letter-spacing: -.01em; flex: 1 1 300px; }
+.files { font: .8rem var(--f-code); color: var(--muted); margin-top: 6px; }
+.tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; }
+.tag { font: 500 .7rem var(--f-code); color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; }
+.prose { max-width: 70ch; }
+.prose p, .prose li { margin: .7em 0; }
+.prose h3 { font-size: 1.08rem; margin-top: 1.6em; }
+
+.excerpt { margin: 18px 0 6px; background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.excerpt .bar2 { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 6px 12px; border-bottom: 1px solid var(--line); background: var(--panel); font: .76rem var(--f-code); color: var(--muted); }
+.excerpt .bar2 a { text-decoration: none; }
+.excerpt .bar2 .links { display: inline-flex; gap: 14px; flex-wrap: wrap; }
+.excerpt .scroll { overflow-x: auto; }
+.excerpt table { border-collapse: collapse; font: .8rem/1.55 var(--f-code); min-width: 100%; }
+.excerpt td { padding: 0; vertical-align: top; white-space: pre; }
+.excerpt td.ln { color: var(--muted); text-align: right; padding: 0 10px 0 12px; user-select: none; font-variant-numeric: tabular-nums; opacity: .75; }
+.excerpt td.bd { width: 20px; padding-right: 4px; }
+.excerpt td.src { padding-right: 16px; }
+.excerpt tr.mk { background: var(--mark-bg); }
+.excerpt tr.mk td.ln { box-shadow: inset 3px 0 0 var(--mark-edge); opacity: 1; color: var(--ink); }
+.excerpt tr.flash { animation: flash 1.2s ease-out; }
+@keyframes flash { 0% { background: var(--accent-soft); } 100% { background: var(--mark-bg); } }
+.badge, ol.co > li::before {
+  display: inline-grid; place-items: center; min-width: 18px; height: 18px; border-radius: 9px; padding: 0 4px;
+  background: var(--accent); color: var(--accent-ink); font: 700 .66rem/1 var(--f-code);
+}
+.badge { cursor: pointer; border: 0; }
+
+ol.co { list-style: none; padding: 0; margin: 12px 0 0; max-width: 74ch; display: grid; gap: 10px; }
+ol.co > li { display: grid; grid-template-columns: 26px 1fr; gap: 8px; align-items: start; padding: 6px 8px; border-radius: 6px; cursor: pointer; }
+ol.co > li::before { content: attr(data-n); margin-top: 3px; }
+ol.co > li:hover, ol.co > li.hot { background: var(--panel); }
+ol.co > li > div { min-width: 0; }
+
+.box { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 14px 16px; margin: 20px 0; max-width: 74ch; }
+.box h3 { font-size: .95rem; margin: 0 0 6px; }
+.box.try { border-style: dashed; }
+.box.try h3::before { content: "Try it · "; color: var(--accent); }
+.box p { margin: .5em 0; }
+.box pre { font: .8rem/1.5 var(--f-code); background: var(--code-bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; overflow-x: auto; margin: 8px 0; }
+
+.stop-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin: 24px 0 0; }
+.btn { font: 600 .84rem var(--f-body); border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 6px; padding: 6px 12px; cursor: pointer; text-decoration: none; }
+.btn:hover { border-color: var(--accent); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+label.readmark { font-size: .86rem; color: var(--muted); display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+
+.schema { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; margin: 14px 0 20px; }
+.schema .ent { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; min-width: 0; }
+.schema .ent.wide { grid-column: 1 / -1; }
+.schema b { display: block; font: 600 .8rem var(--f-code); color: var(--accent); margin-bottom: 4px; overflow-wrap: anywhere; }
+.schema span { font-size: .86rem; color: var(--muted); line-height: 1.45; display: block; }
+.schema i { font-family: var(--f-code); font-style: normal; color: var(--ink); }
+pre.json { font: .78rem/1.5 var(--f-code); background: var(--code-bg); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; overflow-x: auto; white-space: pre; max-width: 100%; }
+table.cheat { border-collapse: collapse; width: 100%; font-size: .9rem; }
+.cheatwrap { overflow-x: auto; margin: 16px 0; }
+table.cheat th, table.cheat td { text-align: left; border-bottom: 1px solid var(--line); padding: 8px 10px; vertical-align: top; }
+table.cheat th { font: 600 .72rem var(--f-code); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+
+.t-kw { color: var(--t-kw); } .t-str { color: var(--t-str); } .t-com { color: var(--t-com); font-style: italic; }
+.t-doc { color: var(--t-doc); font-style: italic; } .t-ty { color: var(--t-ty); } .t-mac { color: var(--t-mac); }
+.t-lt { color: var(--t-lt); font-weight: 600; } .t-num { color: var(--t-num); } .t-fn { color: var(--t-fn); } .t-attr { color: var(--t-attr); }
+
+@media (max-width: 900px) {
+  .shell { grid-template-columns: 1fr; gap: 0; }
+  nav.route { position: static; max-height: none; border-bottom: 1px solid var(--line); padding-bottom: 12px; }
+  nav.route details:not([open]) ol { display: none; }
+}
+@media (min-width: 901px) { nav.route summary { list-style: none; pointer-events: none; } nav.route summary::-webkit-details-marker { display: none; } }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+</style>
+</head>
+<body>
+<div class="shell">
+<nav class="route" aria-label="Stops">
+  <details open>
+    <summary><div class="brand">ifsdep, read as Rust<small>a field guide to your code</small></div></summary>
+    <div class="progress"><span id="progress-text">0 stops read</span><div class="bar"><i id="progress-bar"></i></div></div>
+    <ol id="route-list"></ol>
+  </details>
+</nav>
+
+<main>
+<header class="hero">
+  <div class="eyebrow">ifs-depmap · ifsdep-core 0.2.0 · edition 2021 · std only</div>
+  <h1>How the indexer works, one Rust idea at a time</h1>
+  <p>This guide walks through the whole IFS Dependency Map in the order data moves through it: folders become files, files become parsed records, records become units, objects and edges, those become findings, and findings become JSON that the TypeScript UI draws. Nothing in the pipeline is skipped. Every source file in <code>crates/ifsdep-core/src</code> and <code>src-tauri/src</code> has a stop, and the last stop follows one real finding through all of them. Stop 1 is the map: read it first.</p>
+  <p>Every code block is copied by line number from <a href="https://github.com/phbronson999/ifs-dependency-map">phbronson999/ifs-dependency-map</a> at commit <!--COMMIT--> when the page is built, so what you see is exactly what's in that version of the code. Numbered badges on the code match the notes under it.</p>
+  <p class="how">Click a badge or a note to jump between them. <kbd>J</kbd> and <kbd>K</kbd> move between stops. Pick a concept below to see only the stops that teach it. <em>View on GitHub</em> opens the same lines at that commit. <em>Open in VS Code</em> works on a machine with the project checked out at <code>C:\devstudio</code>.</p>
+
+  <div class="flow" aria-label="Pipeline">
+    <a href="#s-scan"><b>scan.rs</b><span>walk both roots, keep files we understand</span></a>
+    <span class="arrow" aria-hidden="true">→</span>
+    <a href="#s-marble"><b>marble · plsql · deployini · db · entity</b><span>turn text into parsed records</span></a>
+    <span class="arrow" aria-hidden="true">→</span>
+    <a href="#s-options"><b>build.rs</b><span>units, objects, edges, name resolution</span></a>
+    <span class="arrow" aria-hidden="true">→</span>
+    <a href="#s-graph"><b>analyze · datatypes · upgrade</b><span>rules become findings</span></a>
+    <span class="arrow" aria-hidden="true">→</span>
+    <a href="#s-json"><b>json.rs</b><span>hand-rolled serializer</span></a>
+    <span class="arrow" aria-hidden="true">→</span>
+    <a href="#s-tauri"><b>CLI · Tauri</b><span>the two ways in</span></a>
+  </div>
+
+  <div class="concepts">
+    <h2>Filter by concept</h2>
+    <div class="chips" id="chips"></div>
+    <div class="filter-note" id="filter-note" aria-live="polite"></div>
+  </div>
+</header>
+
+<!-- ============================================================ overview -->
+<section class="stop" id="s-overview" data-title="The big picture: what runs, in what order" data-group="Start here" data-c="mod coll">
+  <div class="stop-head"><span class="num"></span><h2>The big picture: what runs, in what order</h2></div>
+  <div class="files">the whole repo</div>
+  <div class="prose">
+    <p>Read this stop first and come back to it. Every later stop is one box in the picture below.</p>
+    <h3>What the program is for</h3>
+    <p>IFS Cloud ships its source as a <strong>Core</strong> folder that you never edit. Your company's changes live in a separate <strong>Cust</strong> folder, mostly as <code>-Cust</code> files that layer over Core files of the same name. The tool reads both folders, builds one dependency graph across them, and reports problems that only show up once your Cust layer is applied: include cycles, duplicate definitions, a missing <code>@Override</code>, undeclared component connections, columns made ambiguous, datatypes that don't match, and what an IFS upgrade changed under your customizations. It never writes to either folder.</p>
+    <h3>The files it reads, and which parser handles each</h3>
+  </div>
+  <div class="cheatwrap"><table class="cheat">
+    <thead><tr><th>Files</th><th>What they are in IFS</th><th>Parser</th><th>What's kept</th></tr></thead>
+    <tbody>
+      <tr><td><code>.client</code> <code>.projection</code> <code>.fragment</code></td><td>Marble: UI pages, the OData service model, shared pieces both include</td><td><a class="ref" href="#s-marble"></a> <code>marble.rs</code></td><td>header, includes, declarations, references, <code>fetch</code> calls, <code>from =</code>, <code>call X()</code></td></tr>
+      <tr><td><code>.plsql</code></td><td>PL/SQL package <code>Xxx_API</code> (business logic)</td><td><a class="ref" href="#s-plsql"></a> <code>plsql.rs</code></td><td>methods, calls with their guards, tables read and written</td></tr>
+      <tr><td><code>.plsvc</code></td><td>PL/SQL behind a projection's actions</td><td><code>plsql.rs</code></td><td>same as <code>.plsql</code></td></tr>
+      <tr><td><code>.views</code> <code>.storage</code> <code>.cre</code> <code>.cdb</code></td><td>views, tables, install scripts</td><td><a class="ref" href="#s-db"></a> <code>db.rs</code> + <a class="ref" href="#s-sqlscope"></a> <code>sqlscope.rs</code></td><td>view and table definitions, columns, types, what each view reads</td></tr>
+      <tr><td><code>.entity</code></td><td>XML model of a logical unit (LU); IFS generates a view, a table and getters from it</td><td><a class="ref" href="#s-entity"></a> <code>entity.rs</code></td><td>LU name, renames, attributes and their properties, associations</td></tr>
+      <tr><td><code>deploy.ini</code></td><td>a component's declared connections to other components</td><td><a class="ref" href="#s-deployini"></a> <code>deployini.rs</code></td><td><code>[Connections]</code> and the description</td></tr>
+    </tbody>
+  </table></div>
+  <div class="prose">
+    <h3>The data model in one picture</h3>
+    <p>Everything ends up in one <code>Index</code> struct (<code>model.rs</code>, <a class="ref" href="#s-model"></a>). It owns seven vectors, and every link between them is a number or a string id, never a Rust reference:</p>
+  </div>
+  <div class="schema">
+    <div class="ent"><b>files: Vec&lt;SourceFile&gt;</b><span>one per file read · <code>root</code> = Core or Cust · <code>unit</code> → <i>"u12"</i></span></div>
+    <div class="ent"><b>units: Vec&lt;Unit&gt;</b><span>logical name: <code>X.fragment</code> + <code>X-Cust.fragment</code> = one unit · <code>files</code> → <i>[19, 35]</i></span></div>
+    <div class="ent"><b>objects: Vec&lt;Object&gt;</b><span>a declaration: entity, command, procedure… · <code>unit</code> → <i>"u12"</i>, <code>file</code> → <i>35</i>, <code>base</code> → <i>"o40"</i></span></div>
+    <div class="ent"><b>relations: Vec&lt;Relation&gt;</b><span>a database table or view, by name · <code>defs</code> → files and lines</span></div>
+    <div class="ent wide"><b>edges: Vec&lt;Edge&gt;</b><span><code>from</code>/<code>to</code> are ids of a unit (<i>u</i>), object (<i>o</i>) or relation (<i>r</i>). Five kinds link units (include, uses_projection, implicit_include, implements, calls). Ten link objects (reference, array, enumeration, entityset_for, binds, overrides, calls_operation, implemented_by, invokes, reads).</span></div>
+    <div class="ent"><b>components: Vec&lt;Component&gt;</b><span>SHPORD, MPCCOM… with deploy.ini connections</span></div>
+    <div class="ent"><b>findings: Vec&lt;Finding&gt;</b><span>rule, severity, message · <code>nodes</code> → ids · <code>edges</code> → edge numbers · <code>location</code> → file + line · evidence and a suggested fix</span></div>
+  </div>
+  <div class="prose">
+    <h3>The pipeline, as it appears in <code>build.rs</code></h3>
+    <p><code>try_index</code> is one long function (lines 80–1062) with numbered comments for its stages. Each stage reads what earlier stages built and adds one layer:</p>
+  </div>
+  <div class="cheatwrap"><table class="cheat">
+    <thead><tr><th>Stage</th><th>build.rs lines</th><th>Reads</th><th>Produces</th><th>Stop</th></tr></thead>
+    <tbody>
+      <tr><td>1. Scan and parse</td><td>97–155</td><td>the two folders</td><td><code>idx.files</code>, plus a parallel local <code>parsed: Vec&lt;Parsed&gt;</code></td><td><a class="ref" href="#s-parse"></a></td></tr>
+      <tr><td>2. Group into units</td><td>159–212</td><td>file names, headers</td><td><code>idx.units</code>, and each file's unit and role (base, overlay)</td><td><a class="ref" href="#s-group"></a></td></tr>
+      <tr><td>3. Objects</td><td>216–350</td><td>parsed declarations, <code>.entity</code> attributes</td><td><code>idx.objects</code>, including generated getters</td><td><a class="ref" href="#s-objects"></a></td></tr>
+      <tr><td>4. Unit-level edges</td><td>354–475</td><td>includes, <code>projection X;</code>, package calls</td><td>local <code>edges</code>: include, calls, implements…</td><td><a class="ref" href="#s-edges"></a></td></tr>
+      <tr><td>5. Object resolution</td><td>479–976</td><td>unit edges (for reachability) and every queued reference</td><td>overrides, references, invokes, reads, bindings, <code>idx.relations</code></td><td><a class="ref" href="#s-resolve"></a>–<a class="ref" href="#s-dyn"></a></td></tr>
+      <tr><td>6. Components</td><td>980–1011</td><td>deploy.ini files</td><td><code>idx.components</code></td><td><a class="ref" href="#s-dyn"></a></td></tr>
+      <tr><td>7. Findings</td><td>1015–1054</td><td>the finished graph</td><td><code>idx.findings</code> from <code>analyze</code>, <code>datatypes</code> and <code>upgrade</code></td><td><a class="ref" href="#s-graph"></a>–<a class="ref" href="#s-upgrade"></a></td></tr>
+    </tbody>
+  </table></div>
+  <div class="prose">
+    <p>After that, <code>json.rs</code> (<a class="ref" href="#s-json"></a>) turns the <code>Index</code> into one JSON string. The CLI (<a class="ref" href="#s-cli"></a>) prints it or writes it to a file. The Tauri app (<a class="ref" href="#s-tauri"></a>) sends it to the TypeScript UI (<a class="ref" href="#s-ui"></a>), which draws three zoom levels: components, files, objects. The Trace view (<a class="ref" href="#s-trace"></a>) is separate: it reads one PL/SQL method on demand and isn't part of the index.</p>
+    <p>On the synthetic fixtures (<code>fixtures/core</code>, <code>fixtures/cust</code>) one run gives <strong>47 files, 23 units, 83 objects, 123 edges and 18 findings</strong> in about 20 ms. That's the output of <code>cargo run --bin ifsdep -- --core fixtures/core --cust fixtures/cust</code>, and the last stop, <a class="ref" href="#s-example"></a>, follows one of those 18 findings all the way through.</p>
+  </div>
+  <pre class="code" data-src="crates/ifsdep-core/src/lib.rs:1-11" data-mark="3:1,8:2,10:3"></pre>
+  <ol class="co">
+    <li data-n="1"><div>The crate's own summary of the pipeline, as a <code>//!</code> module doc. It renders on the front page of <code>cargo doc --open</code>.</div></li>
+    <li data-n="2"><div>The main model rule: a file's layer comes from the folder it's in, never from its name or header.</div></li>
+    <li data-n="3"><div>Override resolution, the subtle part of stage 5 (<a class="ref" href="#s-overrides"></a>).</div></li>
+  </ol>
+</section>
+
+<!-- ============================================================ 1 -->
+<section class="stop" id="s-workspace" data-title="The workspace and crate layout" data-group="Foundations" data-c="mod">
+  <div class="stop-head"><span class="num"></span><h2>The workspace and crate layout</h2></div>
+  <div class="files">Cargo.toml · crates/ifsdep-core/Cargo.toml · crates/ifsdep-core/src/lib.rs</div>
+  <div class="prose">
+    <p>Cargo has three nested ideas: a <strong>workspace</strong> groups packages that share one <code>Cargo.lock</code> and one <code>target/</code>. A <strong>package</strong> is a directory with a <code>Cargo.toml</code>. A <strong>crate</strong> is a single compilation unit, either a library or a binary. One package can hold one library crate and several binary crates. That's exactly the layout here.</p>
+  </div>
+  <pre class="code" data-src="Cargo.toml:1-5" data-mark="3:1,5:2"></pre>
+  <pre class="code" data-src="crates/ifsdep-core/Cargo.toml:1-17" data-mark="4:3,11:4,13:5,17:6"></pre>
+  <ol class="co">
+    <li data-n="1"><div>The workspace has one member. Running <code>cargo test</code> from the repo root tests <code>ifsdep-core</code> only.</div></li>
+    <li data-n="2"><div><code>src-tauri</code> is left out on purpose. It's a separate workspace with its own <code>Cargo.lock</code>, so the core crate builds without the webview toolchain.</div></li>
+    <li data-n="3"><div><strong>Edition 2021</strong> changes real behavior you'll meet later. Closures capture individual struct fields instead of the whole struct (<a class="ref" href="#s-group"></a>), and <code>array.into_iter()</code> yields values instead of references (<a class="ref" href="#s-objects"></a>).</div></li>
+    <li data-n="4"><div>The package is called <code>ifsdep-core</code>, but Rust identifiers can't contain hyphens, so the library is imported as <code>ifsdep_core</code>. Cargo would do that renaming on its own; this line makes it explicit.</div></li>
+    <li data-n="5"><div>A second crate in the same package: the <code>ifsdep</code> CLI. It's compiled as its own crate that <em>depends on</em> the library, so it can only see items marked <code>pub</code>. That's why <a class="ref" href="#s-cli"></a>'s <code>main</code> writes <code>use ifsdep_core::{index, IndexOptions, Severity}</code> like any outside user would.</div></li>
+    <li data-n="6"><div>No dependencies. The JSON writer (<a class="ref" href="#s-analyze"></a>), the folder walk (<a class="ref" href="#s-scan"></a>) and cycle detection (<a class="ref" href="#s-graph"></a>) are all written by hand. That's good for learning: there's no serde or walkdir doing the interesting parts out of sight.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/lib.rs:13-31" data-mark="13:7,30:8,31:9"></pre>
+  <ol class="co">
+    <li data-n="7"><div><code>pub mod analyze;</code> tells the compiler to load <code>src/analyze.rs</code> as the module <code>crate::analyze</code> and make it public. Rust only compiles files the module tree reaches. A file that isn't declared with <code>mod</code> is ignored.</div></li>
+    <li data-n="8"><div><code>pub use</code> <strong>re-exports</strong>: callers write <code>ifsdep_core::index</code> instead of <code>ifsdep_core::build::index</code>. The internal file layout can change without breaking the public API.</div></li>
+    <li data-n="9"><div>A glob re-export puts every public item of <code>model</code> (<code>Index</code>, <code>Layer</code>, <code>Finding</code>…) at the crate root. The integration tests rely on this with <code>use ifsdep_core::*;</code>.</div></li>
+  </ol>
+</section>
+
+<!-- ============================================================ 2 -->
+<section class="stop" id="s-model" data-title="The data model: enums, structs, derives" data-group="Foundations" data-c="own coll opt pat">
+  <div class="stop-head"><span class="num"></span><h2>The data model: enums, structs, derives</h2></div>
+  <div class="files">crates/ifsdep-core/src/model.rs</div>
+  <div class="prose">
+    <p><code>model.rs</code> is the vocabulary of the whole program: plain data types with no behavior beyond a few helpers. Read it first in any Rust codebase. The types tell you what the program believes about the world.</p>
+  </div>
+  <pre class="code" data-src="crates/ifsdep-core/src/model.rs:4-8" data-mark="4:1"></pre>
+  <pre class="code" data-src="crates/ifsdep-core/src/model.rs:28-51" data-mark="29:2,30:3,34:4,49:5"></pre>
+  <ol class="co">
+    <li data-n="1"><div>Each derive opts the type into a trait. Here's why each one matters in this codebase:
+      <br><code>Copy</code>/<code>Clone</code>: a <code>Layer</code> is one byte, so passing it around copies it and never <em>moves</em> it. You can use <code>f.root</code> after reading it.
+      <br><code>PartialEq</code>/<code>Eq</code>: lets you write <code>==</code>, as in <code>idx.files[f].root == Layer::Core</code>.
+      <br><code>Hash</code>: needed for <code>HashMap</code> keys. <code>UnitKind</code> is part of the key <code>(UnitKind, String)</code> in <a class="ref" href="#s-group"></a>.
+      <br><code>PartialOrd</code>/<code>Ord</code>: needed for <code>BTreeMap</code> keys and sorting. A derived <code>Ord</code> on an enum follows declaration order, so <code>Severity::Error &lt; Warning &lt; Info</code>, and the final sort in <a class="ref" href="#s-dyn"></a> puts errors first for free.</div></li>
+    <li data-n="2"><div><code>p: &amp;Path</code> borrows the path. The function only reads it, so it doesn't need to own it. <code>Path</code> is to <code>PathBuf</code> what <code>str</code> is to <code>String</code>: a borrowed view versus an owned, growable buffer.</div></li>
+    <li data-n="3"><div>The <code>?</code> operator works on <code>Option</code> too. <code>file_name()</code> returns <code>Option&lt;&amp;OsStr&gt;</code> (a path like <code>/</code> has no name), and <code>to_str()</code> returns <code>Option&lt;&amp;str&gt;</code> (OS strings may not be UTF-8). Any <code>None</code> makes the whole function return <code>None</code> early. <code>to_ascii_lowercase()</code> then allocates a new owned <code>String</code>.</div></li>
+    <li data-n="4"><div>You can't <code>match</code> a <code>String</code> against string literals directly, because the literals are <code>&amp;str</code>. <code>.as_str()</code> borrows the <code>String</code> as a <code>&amp;str</code>. The temporary <code>String</code> made by <code>to_ascii_lowercase()</code> lives until the end of the <code>match</code> statement, which is long enough.</div></li>
+    <li data-n="5"><div><code>matches!</code> is a macro that expands to a <code>match</code> returning <code>true</code>/<code>false</code>. Methods take <code>self</code> by value here. That's cheap and idiomatic because <code>FileKind</code> is <code>Copy</code>.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/model.rs:93-103" data-mark="101:6"></pre>
+  <pre class="code" data-src="crates/ifsdep-core/src/model.rs:328-350" data-mark="328:7,344:8,348:9,349:10"></pre>
+  <ol class="co">
+    <li data-n="6"><div><strong>The most important design decision in the codebase.</strong> A <code>Unit</code> doesn't hold references to its files (<code>Vec&lt;&amp;SourceFile&gt;</code>). It holds their <em>positions</em> in <code>Index.files</code>. See the box below.</div></li>
+    <li data-n="7"><div><code>#[derive(Default)]</code> on a struct works when every field has a default: empty <code>Vec</code>s, <code>None</code>, <code>0</code>. Later code writes <code>Index { version: 1, ..Default::default() }</code> (struct update syntax) to set a few fields and default the rest.</div></li>
+    <li data-n="8"><div>A fully qualified path, <code>crate::stamp::Stamp</code>, used inline instead of a <code>use</code> at the top. <code>crate::</code> always means "the root of this crate".</div></li>
+    <li data-n="9"><div>Doc comments (<code>///</code>) attach to the next item and show up in <code>cargo doc</code> and editor hovers. <code>//!</code> (as in <code>lib.rs</code>) documents the module that contains it.</div></li>
+    <li data-n="10"><div><code>&amp;id[1..]</code> slices off the first <em>byte</em>. That's safe because ids are ASCII (<code>u12</code>, <code>o40</code>). On a multi-byte first character it would panic. <code>parse()</code> infers its target type (<code>usize</code>) from the function's return type, and <code>unwrap_or</code> turns a bad id into <code>usize::MAX</code> instead of a panic.</div></li>
+  </ol>
+  <div class="box">
+    <h3>The arena pattern: indices instead of references</h3>
+    <p><code>Index</code> owns every <code>Vec</code>: files, units, objects, edges. Everything else points into those vectors by number (<code>file: usize</code>, <code>files: Vec&lt;usize&gt;</code>) or by string id (<code>"u12"</code>). If <code>Unit</code> held <code>&amp;SourceFile</code> instead, it would need a lifetime parameter (<code>Unit&lt;'a&gt;</code>), and <code>Index</code> would hold references into itself. That's a self-referential struct, which safe Rust doesn't allow. The other ways out are <code>Rc&lt;RefCell&lt;…&gt;&gt;</code> everywhere, or indices.</p>
+    <p>Indices win here. The data is built once and then read, ids serialize straight to JSON for the UI, and a <code>usize</code> is <code>Copy</code>, so you can hold as many as you like without borrowing anything. The cost is that the compiler no longer checks that an index is valid. A wrong number panics at runtime (out of bounds) instead of failing to compile.</p>
+  </div>
+</section>
+
+<!-- ============================================================ 3 -->
+<section class="stop" id="s-scan" data-title="Walking folders: owned vs borrowed paths" data-group="Foundations" data-c="own borrow opt pat iter str">
+  <div class="stop-head"><span class="num"></span><h2>Walking folders: owned vs borrowed paths</h2></div>
+  <div class="files">crates/ifsdep-core/src/scan.rs</div>
+  <div class="prose"><p>A complete function in 50 lines, using about a dozen everyday Rust idioms. It walks a directory tree without recursion and returns what it found plus notes about what it skipped.</p></div>
+  <pre class="code" data-src="crates/ifsdep-core/src/scan.rs:15-66" data-mark="17:1,20:2,21:3,22:4,29:5,30:6,32:7,43:8,44:9,55:10,56:11,64:12"></pre>
+  <ol class="co">
+    <li data-n="1"><div>The signature: borrow the input (<code>&amp;Path</code>), return owned output (<code>Vec</code>s). Returning a tuple is the light alternative to a dedicated struct when there are two results.</div></li>
+    <li data-n="2"><div><code>to_path_buf()</code> makes an owned copy, because the stack has to <em>own</em> its entries. Later entries come from <code>entry.path()</code>, which returns new <code>PathBuf</code>s.</div></li>
+    <li data-n="3"><div><code>while let Some(dir) = stack.pop()</code> is iterative depth-first search. <code>pop()</code> moves the <code>PathBuf</code> out of the <code>Vec</code> into <code>dir</code>, and the loop ends when it returns <code>None</code>.</div></li>
+    <li data-n="4"><div>Matching on a <code>Result</code> to log the error and <code>continue</code>. This is the "keep going on errors" style. A <code>?</code> here would abort the whole scan because one folder was unreadable.</div></li>
+    <li data-n="5"><div><code>read_dir</code> yields <code>io::Result&lt;DirEntry&gt;</code> items. <code>Result</code> implements <code>IntoIterator</code> (an <code>Ok</code> gives one item, an <code>Err</code> none), so <code>.flatten()</code> silently drops entries that failed to read.</div></li>
+    <li data-n="6"><div><strong>let-else</strong> (Rust 1.65): bind on success, or run a block that must diverge (<code>continue</code>, <code>return</code>, <code>break</code>, panic). It keeps the happy path unindented. You'll see it dozens of times in this codebase.</div></li>
+    <li data-n="7"><div><code>to_string_lossy()</code> returns <code>Cow&lt;str&gt;</code> ("clone on write"). It <em>borrows</em> when the OS name is valid UTF-8 and <em>allocates</em> only when it has to replace bad bytes. <code>into_owned()</code> gives you a <code>String</code> either way.</div></li>
+    <li data-n="8"><div>Option and Result combinators instead of nested <code>match</code>: <code>map</code> transforms the success value, and <code>unwrap_or</code> supplies the fallback. The closure takes <code>m</code> by value and passes <code>&amp;m</code> on.</div></li>
+    <li data-n="9"><div><code>strip_prefix</code> returns <code>Result&lt;&amp;Path, _&gt;</code>, so the fallback must also be a <code>&amp;Path</code>. <code>&amp;path</code> is a <code>&amp;PathBuf</code>, and <strong>deref coercion</strong> turns it into <code>&amp;Path</code> automatically. <code>.to_path_buf()</code> then copies the result so it no longer borrows <code>path</code>, which matters on the next line.</div></li>
+    <li data-n="10"><div>Field order matters for moves. <code>rel</code> is computed from <code>rel_path</code> (an owned copy) first…</div></li>
+    <li data-n="11"><div>…then <code>abs: path</code> <em>moves</em> the <code>PathBuf</code> into the struct with no clone. If <code>rel_path</code> still borrowed <code>path</code>, this move would be rejected.</div></li>
+    <li data-n="12"><div><code>sort_by</code> takes a comparator closure returning <code>Ordering</code>. Sorting makes the output the same on every run, a theme throughout the project (<a class="ref" href="#s-edges"></a> explains the <code>BTreeMap</code> side of it).</div></li>
+  </ol>
+</section>
+
+<!-- ============================================================ 4 -->
+<section class="stop" id="s-deployini" data-title="A tiny parser: deploy.ini" data-group="Parsers" data-c="pat str opt test">
+  <div class="stop-head"><span class="num"></span><h2>A tiny parser: deploy.ini</h2></div>
+  <div class="files">crates/ifsdep-core/src/deployini.rs</div>
+  <div class="prose"><p>The smallest parser, and the template for the rest: take <code>&amp;str</code>, walk lines, return a plain struct. Nothing in it allocates more than the values it keeps.</p></div>
+  <pre class="code" data-src="crates/ifsdep-core/src/deployini.rs:1-39" data-mark="8:1,11:2,14:3,15:4,20:5,23:6,25:7,26:8,33:9"></pre>
+  <ol class="co">
+    <li data-n="1"><div>A <code>Vec</code> of tuples where a struct might go. The doc comment says what each position means. That's fine for an internal type. A named struct would be clearer once more code reads it.</div></li>
+    <li data-n="2"><div><code>text: &amp;str</code>: the caller owns the file contents. Taking <code>&amp;str</code> rather than <code>&amp;String</code> is idiomatic because it accepts both <code>&amp;String</code> (by deref) and string literals, which is exactly what the test does.</div></li>
+    <li data-n="3"><div><code>.lines().enumerate()</code> gives <code>(index, &amp;str)</code> pairs. The <code>&amp;str</code>s are slices of <code>text</code>, so no copying.</div></li>
+    <li data-n="4"><div><code>trim()</code> also returns a sub-slice. <code>line</code> borrows from <code>text</code>, which is why it can't outlive it.</div></li>
+    <li data-n="5"><div>Byte-index slicing, <code>line[1..line.len() - 1]</code>. That's safe because the first and last characters were just checked to be <code>[</code> and <code>]</code>, which are one byte each.</div></li>
+    <li data-n="6"><div><code>split_once('=')</code> returns <code>Option&lt;(&amp;str, &amp;str)&gt;</code>. Here let-else destructures a tuple inside an <code>Option</code>.</div></li>
+    <li data-n="7"><div>Matching a <code>String</code> again, via <code>.as_str()</code>…</div></li>
+    <li data-n="8"><div>…with <strong>match guards</strong>: <code>"component" if …</code>. If the guard is false, matching falls through to the next arm, ending at <code>_ =&gt; {}</code>.</div></li>
+    <li data-n="9"><div>Line numbers are 1-based for people. <code>enumerate</code> is 0-based, hence <code>i + 1</code>, a pattern repeated in every parser.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/deployini.rs:41-50" data-mark="41:10,44:11,46:12"></pre>
+  <ol class="co">
+    <li data-n="10"><div><code>#[cfg(test)]</code> compiles this module only for <code>cargo test</code>. Unit tests live next to the code they test and can reach private items.</div></li>
+    <li data-n="11"><div><code>super::parse</code>: the test module is a child of <code>deployini</code>, so <code>super</code> is the parent. Most test modules here write <code>use super::*;</code> instead.</div></li>
+    <li data-n="12"><div><code>as_deref()</code> turns <code>Option&lt;String&gt;</code> into <code>Option&lt;&amp;str&gt;</code>, so it can be compared with <code>Some("SHPORD")</code> without allocating. You'll see <code>as_deref</code> everywhere. It's the standard way to look inside an <code>Option</code> of an owned type.</div></li>
+  </ol>
+</section>
+
+<!-- ============================================================ 5 -->
+<section class="stop" id="s-marble" data-title="Marble parser: slices, elision, the borrow checker" data-group="Parsers" data-c="borrow life opt pat str iter own">
+  <div class="stop-head"><span class="num"></span><h2>Marble parser: slices, elision, the borrow checker</h2></div>
+  <div class="files">crates/ifsdep-core/src/marble.rs</div>
+  <div class="prose"><p>The parser for <code>.client</code>, <code>.projection</code> and <code>.fragment</code> files tracks brace depth line by line. Three things in it are worth studying closely: functions that return slices of their input, <code>Option::take</code> as a "consume once" flag, and a spot where the code is ordered to satisfy the borrow checker.</p></div>
+  <pre class="code" data-src="crates/ifsdep-core/src/marble.rs:66-82" data-mark="66:1,78:2"></pre>
+  <ol class="co">
+    <li data-n="1"><div>A constant slice of string literals. Its full type is <code>&amp;'static [&amp;'static str]</code>. In <code>const</code>/<code>static</code> items the <code>'static</code> is implied. Literals are baked into the binary, so they live for the whole program.</div></li>
+    <li data-n="2"><div>A private helper struct that holds annotations seen on a line until the declaration they belong to shows up.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/marble.rs:116-130" data-mark="117:3,118:4,120:5,129:6"></pre>
+  <ol class="co">
+    <li data-n="3"><div><code>rest</code> is a <code>let mut rest: &amp;str</code>. Making it <code>mut</code> lets you point the <em>reference</em> somewhere else. It does not let you change the text. <code>strip_prefix</code> returns a shorter slice of the same text.</div></li>
+    <li data-n="4"><div><code>split_word</code> returns two slices into the same text (see below).</div></li>
+    <li data-n="5"><div>Or-patterns in a match arm: <code>"Override" | "Overtake"</code>. <code>to_string()</code> allocates because <code>Pending</code> owns its data.</div></li>
+    <li data-n="6"><div>Reassigning the slice to move forward through the text. This is "parsing by narrowing a <code>&amp;str</code>", and nothing is copied.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/marble.rs:296-302" data-mark="296:7"></pre>
+  <pre class="code" data-src="crates/ifsdep-core/src/marble.rs:343-359" data-mark="344:8,351:9"></pre>
+  <ol class="co">
+    <li data-n="7"><div><strong>Lifetime elision.</strong> Written out in full, this is <code>fn split_word&lt;'a&gt;(s: &amp;'a str) -&gt; (&amp;'a str, &amp;'a str)</code>. When a function has exactly one reference input, the compiler gives every output reference that input's lifetime. The returned slices point into the caller's text, so they can't outlive it, and they cost nothing to make.</div></li>
+    <li data-n="8"><div>Same rule: the output <code>&amp;str</code> borrows <code>line</code>. "Strip the comment" means "return a shorter view", with no new <code>String</code>.</div></li>
+    <li data-n="9"><div>Scanning <code>as_bytes()</code> with byte literals (<code>b'-'</code> is a <code>u8</code>). Slicing <code>&amp;line[..i]</code> at a byte index is only valid on a UTF-8 character boundary. It's safe here because <code>i</code> sits on an ASCII <code>-</code> or <code>/</code>, and ASCII bytes never occur inside a multi-byte character.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/marble.rs:197-232" data-mark="202:10,213:11,216:12,219:13,224:14"></pre>
+  <ol class="co">
+    <li data-n="10"><div><code>parent</code> is a shared borrow of an element of <code>out.decls</code>…</div></li>
+    <li data-n="11"><div><code>pending.modifier.take()</code> moves the value out and leaves <code>None</code> behind, so an annotation is used at most once. <code>.or_else(|| parent.modifier.clone())</code> falls back to the parent's annotation, and the closure runs only when needed.</div></li>
+    <li data-n="12"><div>Every use of <code>parent</code> happens while building <code>decl</code>…</div></li>
+    <li data-n="13"><div>…so by the time <code>out.decls.push(decl)</code> needs a <em>mutable</em> borrow, the shared borrow is already over. This is <strong>non-lexical lifetimes</strong> (NLL): a borrow lasts until its last use, not until the end of the block. Building <code>decl</code> in a variable first is what makes this compile.</div></li>
+    <li data-n="14"><div>A fresh mutable borrow through the index, <code>out.decls[ci]</code>. Holding the index <code>ci</code> instead of a reference lets the code borrow again whenever it needs to.</div></li>
+  </ol>
+  <div class="box try">
+    <h3>break the borrow on purpose</h3>
+    <p>I compiled a cut-down version of this pattern (rustc 1.96). Using <code>parent</code> after the push fails like this:</p>
+    <pre>let parent = &amp;decls[0];
+decls.push(D { name: parent.name.clone(), .. });
+println!("{}", parent.name);   // uses parent after the push
+// error[E0502]: cannot borrow `decls` as mutable because it is also borrowed as immutable</pre>
+    <p>The reason is that <code>push</code> may reallocate the vector and move every element, which would leave <code>parent</code> dangling. Delete the last line and it compiles.</p>
+  </div>
+  <pre class="code" data-src="crates/ifsdep-core/src/marble.rs:374-389" data-mark="383:15"></pre>
+  <ol class="co">
+    <li data-n="15"><div><code>std::mem::take(&amp;mut cur)</code> swaps an empty <code>String</code> into <code>cur</code> and hands you the old value. You get the token without cloning it, and <code>cur</code> is ready for the next one. Use it whenever you want "move out of a <code>&amp;mut</code>" and the type has a cheap <code>Default</code>.</div></li>
+  </ol>
+</section>
+
+<!-- ============================================================ 6 -->
+<section class="stop" id="s-plsql" data-title="PL/SQL scanner: 'static, state machines, stacks" data-group="Parsers" data-c="life str opt iter mod pat">
+  <div class="stop-head"><span class="num"></span><h2>PL/SQL scanner: <code>'static</code>, state machines, stacks</h2></div>
+  <div class="files">crates/ifsdep-core/src/plsql.rs</div>
+  <pre class="code" data-src="crates/ifsdep-core/src/plsql.rs:10-17" data-mark="12:1"></pre>
+  <ol class="co">
+    <li data-n="1"><div><code>kind: &amp;'static str</code> stores a reference in a struct <em>without</em> giving the struct a lifetime parameter. It works because the only values ever stored are literals (<code>"procedure"</code>, <code>"function"</code>), which live forever. Compare <code>name: String</code>: it comes from file text, so it has to be owned.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/plsql.rs:47-80" data-mark="47:2,52:3,53:4,62:5,63:6,79:7"></pre>
+  <ol class="co">
+    <li data-n="2"><div><code>pub(crate)</code>: visible anywhere in this crate, invisible outside it. <code>trace.rs</code> imports <code>is_ident</code>, but the CLI binary can't.</div></li>
+    <li data-n="3"><div>Elision again: one reference input, <code>line</code>, so the <code>&amp;str</code> in the returned tuple borrows from <code>line</code>. The <code>usize</code> is plain data.</div></li>
+    <li data-n="4"><div><code>find</code> accepts a closure as a pattern. <code>.map(|e| i + e)</code> turns a relative position into an absolute one, and <code>unwrap_or(line.len())</code> means "to the end".</div></li>
+    <li data-n="5"><div>Two output lifetimes in one type: <code>(&amp;'static str, &amp;str)</code>. The first is spelled out as <code>'static</code> because it's a literal. The second is elided, so it borrows <code>line</code>. The compiler checks each one separately.</div></li>
+    <li data-n="6"><div><code>?</code> on <code>Option</code> inside a function that returns <code>Option</code>: an empty line exits immediately.</div></li>
+    <li data-n="7"><div>Returning the borrowed <code>name</code> without copying it. The caller (<a class="ref" href="#s-parse"></a>) decides whether to copy it with <code>name.to_string()</code>.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/plsql.rs:176-236" data-mark="179:8,188:9,200:10,201:11,209:12,221:13,234:14"></pre>
+  <ol class="co">
+    <li data-n="8"><div>A stack of <code>Option&lt;String&gt;</code> mirrors nested <code>$IF … $END</code> blocks. <code>None</code> is a level that doesn't guard a component.</div></li>
+    <li data-n="9"><div><code>.unwrap()</code> right after <code>match parts.next().unwrap_or("")</code> matched a non-empty word, so it can't panic. Unwrapping is fine when an earlier line has already proven the value exists.</div></li>
+    <li data-n="10"><div><code>last_mut()</code> gives <code>Option&lt;&amp;mut Option&lt;String&gt;&gt;</code>…</div></li>
+    <li data-n="11"><div>…and <code>*top = None</code> writes through the mutable reference. Inside an <code>$ELSE</code> the guard no longer applies, so the top of the stack is cleared without popping it.</div></li>
+    <li data-n="12"><div><code>take()</code> again: annotations belong to the next declaration only.</div></li>
+    <li data-n="13"><div><code>guards.iter().rev().find_map(|g| g.clone())</code> finds the innermost real guard. <code>find_map</code> is "map, then return the first <code>Some</code>". The <code>clone</code> is needed because <code>Call</code> owns its <code>guard</code>.</div></li>
+    <li data-n="14"><div>Popping on <code>$END</code> <em>after</em> the line's calls are recorded, so calls on the <code>$END</code> line still count as inside the block.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/plsql.rs:433-466" data-mark="434:15,441:16,448:17"></pre>
+  <ol class="co">
+    <li data-n="15"><div>An enum declared <em>inside</em> a function, visible only there. It's a natural fit for a state machine's states. The <code>PartialEq</code> derive is local too.</div></li>
+    <li data-n="16"><div><code>Vec&lt;char&gt;</code> trades memory (4 bytes per character) for O(1) random access and lookahead (<code>chars.get(i + 1)</code>). You can't index a <code>&amp;str</code> by character position, because characters are 1 to 4 bytes wide.</div></li>
+    <li data-n="17"><div><code>match s</code> on the current state, then on the characters inside each arm. Each arm moves to the next state with <code>s = S::Line</code>, and so on. This is the clearest way to write a lexer in Rust.</div></li>
+  </ol>
+</section>
+
+<!-- ============================================================ db -->
+<section class="stop" id="s-db" data-title="Views and tables: db.rs" data-group="Parsers" data-c="pat clos opt iter str">
+  <div class="stop-head"><span class="num"></span><h2>Views and tables: <code>db.rs</code></h2></div>
+  <div class="files">crates/ifsdep-core/src/db.rs · feeds stage 5 (relations, columns) and the column and datatype rules</div>
+  <div class="prose"><p><code>.views</code> and <code>.storage</code> files hold IFS's own SQL-like statements: <code>VIEW x IS SELECT …;</code> and <code>TABLE x IS ( … );</code>. A statement can span many lines, so the parser keeps a little state across lines, then runs the SQL helpers from <a class="ref" href="#s-sqlscope"></a> over each view's text.</p></div>
+  <pre class="code" data-src="crates/ifsdep-core/src/db.rs:6-43" data-mark="18:1,20:2,22:3,33:4,42:5"></pre>
+  <ol class="co">
+    <li data-n="1"><div><code>Option&lt;Vec&lt;String&gt;&gt;</code> separates "no columns" (<code>Some(vec![])</code>) from "can't know" (<code>None</code>, for <code>SELECT *</code>). That difference matters to the column rules, and an <code>Option</code> spells it out where an empty <code>Vec</code> would hide it.</div></li>
+    <li data-n="2"><div>Types from another module (<code>sqlscope::SelectItem</code>), named through the module path brought in by <code>use crate::{plsql, sqlscope};</code> at the top of the file.</div></li>
+    <li data-n="3"><div>The view's top-level FROM, with aliases. The datatype rule (<a class="ref" href="#s-resolver"></a>) resolves <code>a.col</code> through it.</div></li>
+    <li data-n="4"><div><code>PartialEq</code> is derived only where the tests compare whole values with <code>assert_eq!</code>.</div></li>
+    <li data-n="5"><div>A <code>Vec</code> of <code>(column, type)</code> pairs rather than a map: the order of the definition is kept, and lookups are rare and small.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/db.rs:48-118" data-mark="52:6,53:7,59:8,77:9,78:10,83:11,98:12,116:13"></pre>
+  <ol class="co">
+    <li data-n="6"><div>Each view's span is <code>(view index, first line, last line)</code>, filled in as the loop finds the closing <code>;</code>.</div></li>
+    <li data-n="7"><div><code>open: Option&lt;(usize, usize)&gt;</code> is the multi-line state: "inside view <code>vi</code>, which started on line <code>first</code>". <code>None</code> means between statements. An <code>Option</code> of a tuple is the lightest state machine there is.</div></li>
+    <li data-n="8"><div><code>if let Some((vi, first)) = open</code> copies both numbers out (<code>Option&lt;(usize, usize)&gt;</code> is <code>Copy</code>), so <code>open = None</code> two lines later is allowed.</div></li>
+    <li data-n="9"><div><code>t.replace(…)</code> returns a <em>new</em> <code>String</code>, and <code>spaced</code> owns it…</div></li>
+    <li data-n="10"><div>…and <code>words: Vec&lt;&amp;str&gt;</code> borrows from <code>spaced</code>. That's why the <code>String</code> needs a named variable: <code>t.replace(…).split_whitespace().collect()</code> would borrow from a temporary dropped at the end of that statement (the same E0716 as in <a class="ref" href="#s-objects"></a>).</div></li>
+    <li data-n="11"><div><code>Option::filter</code> with a slice check, <code>words[..at].iter().all(…)</code>: "TABLE appears, and only allowed prefixes come before it".</div></li>
+    <li data-n="12"><div><code>pending.take()</code> again: an <code>@Override</code> applies to the next VIEW only.</div></li>
+    <li data-n="13"><div>After the loop: a view with no closing <code>;</code> runs to the end of the file (<code>usize::MAX</code>, capped later with <code>.min(tlines.len())</code>).</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/db.rs:152-188" data-mark="154:14,156:15,160:16,163:17,173:18,182:19"></pre>
+  <ol class="co">
+    <li data-n="14"><div><code>for &amp;(vi, first, last) in &amp;spans</code>: iterating <code>&amp;Vec</code> gives <code>&amp;(usize, usize, usize)</code>, and the <code>&amp;</code> in the pattern copies the three numbers out.</div></li>
+    <li data-n="15"><div>Slicing the line vector <code>tlines[first - 1..end]</code> (a <code>&amp;[&amp;str]</code>) and joining it gives the view's own text.</div></li>
+    <li data-n="16"><div><code>.map(|mut i| { i.line += shift; i })</code>: a closure parameter can be <code>mut</code>. Each item is owned (<code>into_iter</code>), so it can be changed and passed on. Line numbers are relative to the view, so they're shifted back to file lines.</div></li>
+    <li data-n="17"><div><code>min_by_key</code> picks the outermost SELECT, the first one in the text.</div></li>
+    <li data-n="18"><div>A closure with a double-reference pattern, <code>|&amp;&amp;(_, a, b)|</code>. <code>spans.iter()</code> yields <code>&amp;T</code>, and <code>find</code> passes <code>&amp;&amp;T</code> to its predicate. Each <code>&amp;</code> in the pattern peels off one layer.</div></li>
+    <li data-n="19"><div>let-else with a closure call: lines outside any view are skipped.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/db.rs:194-202" data-mark="198:20"></pre>
+  <pre class="code" data-src="crates/ifsdep-core/src/db.rs:293-299" data-mark="298:21"></pre>
+  <ol class="co">
+    <li data-n="20"><div>An <code>FnMut</code> closure that captures <code>out</code> mutably and adds a table only if its name is new. The function ends with <code>out</code> on line 255, after the last call to <code>add</code>. NLL treats the closure's borrow like any other, so it ends at the closure's last use.</div></li>
+    <li data-n="21"><div><code>bool::then(|| …)</code> turns a condition into an <code>Option</code>: <code>Some(name)</code> if true, <code>None</code> if false. The closure runs only when the condition holds, so nothing is allocated for a rejected name.</div></li>
+  </ol>
+</section>
+
+<!-- ============================================================ entity -->
+<section class="stop" id="s-entity" data-title="The .entity reader: XML without a crate" data-group="Parsers" data-c="pat str borrow coll">
+  <div class="stop-head"><span class="num"></span><h2>The <code>.entity</code> reader: XML without a crate</h2></div>
+  <div class="files">crates/ifsdep-core/src/entity.rs · feeds generated getters (stage 3), generated view and table (stage 5), DATATYPE_MISMATCH, ENTITY_CHANGED</div>
+  <div class="prose"><p>An <code>.entity</code> file is element-only XML. IFS generates the LU's view (<code>SHOP_ORDER</code>), table (<code>SHOP_ORDER_TAB</code>) and getter functions from it, so the tool needs the LU name, any renames, and the attributes. Instead of an XML library, the reader keeps a stack of open element names and acts on the path.</p></div>
+  <pre class="code" data-src="crates/ifsdep-core/src/entity.rs:83-131" data-mark="85:1,89:2,92:3,93:4,100:5,106:6,110:7,111:8,125:9,129:10"></pre>
+  <ol class="co">
+    <li data-n="1"><div><code>path: Vec&lt;&amp;str&gt;</code> is a stack of element names, each a slice of <code>text</code>, so pushing a name copies nothing. The vector can't outlive <code>text</code>, and it doesn't need to, because it's local.</div></li>
+    <li data-n="2"><div><code>while let Some(off) = text[i..].find('&lt;')</code> jumps from tag to tag. <code>i</code> is a byte offset. It always lands just after an ASCII <code>&gt;</code>, so slicing at it is safe.</div></li>
+    <li data-n="3"><div>let-else with <code>break</code> (not <code>continue</code>): an unclosed <code>&lt;</code> ends the scan.</div></li>
+    <li data-n="4"><div><code>tag</code> borrows the text between <code>&lt;</code> and <code>&gt;</code>.</div></li>
+    <li data-n="5"><div><code>path.last() == Some(&amp;name.trim())</code>: <code>last()</code> returns <code>Option&lt;&amp;&amp;str&gt;</code>, so the right side needs a <code>&amp;</code> too, and the types have to match exactly.</div></li>
+    <li data-n="6"><div><code>split</code> with a closure, <code>.next()</code> for the first piece, and <code>unwrap_or("")</code>: the element name before any attributes.</div></li>
+    <li data-n="7"><div>Push the slice: still no allocation.</div></li>
+    <li data-n="8"><div>Comparing a <code>Vec&lt;&amp;str&gt;</code> with an array literal works because <code>Vec</code> implements <code>PartialEq</code> for arrays of comparable items. A new <code>&lt;ATTRIBUTE&gt;</code> pushes a default <code>Attribute</code>, which later leaf values fill in.</div></li>
+    <li data-n="9"><div>Text is kept only when the next tag is a closing one (<code>&lt;/</code>). <code>b.get(end + 1)</code> on the byte slice returns <code>None</code> at the end instead of panicking.</div></li>
+    <li data-n="10"><div><code>path.join("/")</code> builds a key like <code>ENTITY/ATTRIBUTES/ATTRIBUTE/NAME</code> for the big match below.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/entity.rs:130-145" data-mark="131:11,135:12"></pre>
+  <pre class="code" data-src="crates/ifsdep-core/src/entity.rs:192-209" data-mark="192:13,194:14,201:15"></pre>
+  <ol class="co">
+    <li data-n="11"><div>A <code>match</code> on the joined path. Each arm moves <code>value</code> (an owned <code>String</code>) into the right field. Only one arm runs, so moving the same variable in several arms is fine.</div></li>
+    <li data-n="12"><div><code>last_mut()</code> returns the attribute being filled in, if there is one. <code>if let Some(a)</code> keeps a stray <code>&lt;NAME&gt;</code> from panicking.</div></li>
+    <li data-n="13"><div>A guard arm that binds the whole value, <code>p if p.starts_with(…)</code>, for a family of paths.</div></li>
+    <li data-n="14"><div>A nested match on the rest of the path, <code>&amp;p[ATTRIBUTE_CODEGEN.len()..]</code>.</div></li>
+    <li data-n="15"><div>The catch-all arm matches on <code>strip_prefix</code>'s result directly: <code>Some("DB_TABLE_NAME")</code> is a pattern on <code>Option&lt;&amp;str&gt;</code>.</div></li>
+  </ol>
+</section>
+
+<!-- ============================================================ sqlscope -->
+<section class="stop" id="s-sqlscope" data-title="SQL query blocks: sqlscope.rs" data-group="Parsers" data-c="life pat clos borrow">
+  <div class="stop-head"><span class="num"></span><h2>SQL query blocks: <code>sqlscope.rs</code></h2></div>
+  <div class="files">crates/ifsdep-core/src/sqlscope.rs · used by db.rs, COLUMN_AMBIGUOUS, DATATYPE_MISMATCH, upgrade</div>
+  <div class="prose"><p>To know whether an unprefixed column like <code>priority</code> is ambiguous, you have to know which SELECT it belongs to and what that SELECT's FROM reads. <code>blocks()</code> splits SQL into one <code>Block</code> per SELECT, so subqueries and UNION branches each get their own.</p></div>
+  <pre class="code" data-src="crates/ifsdep-core/src/sqlscope.rs:6-21" data-mark="9:1,20:2"></pre>
+  <ol class="co">
+    <li data-n="1"><div>An empty <code>name</code> stands for "a subquery in the FROM". An <code>Option&lt;String&gt;</code> would say it more strongly; the empty string keeps comparisons simple.</div></li>
+    <li data-n="2"><div>The doc comment admits the list over-collects ("includes some that are not columns"), and callers filter it. Saying so in the doc is a good habit.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/sqlscope.rs:72-97" data-mark="73:3,78:4,86:5"></pre>
+  <ol class="co">
+    <li data-n="3"><div>An enum that <em>borrows</em>: <code>Tok&lt;'a&gt;</code> holds a <code>&amp;'a str</code> into the SQL text. It can be <code>Copy</code> because <code>&amp;str</code> and <code>char</code> are both <code>Copy</code>.</div></li>
+    <li data-n="4"><div><code>Tok&lt;'_&gt;</code> is the <strong>anonymous lifetime</strong>: elided as usual (here it's <code>cleaned</code>'s), but written so readers can see a borrow is hiding in the type. Leaving it out is allowed, but the <code>elided_lifetimes_in_paths</code> lint (part of the opt-in <code>rust_2018_idioms</code> group) flags it. The token list can't outlive the text.</div></li>
+    <li data-n="5"><div>Each token is a slice of its line. Tokenizing allocates only the outer <code>Vec</code>.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/sqlscope.rs:118-149" data-mark="118:6,126:7,144:8,145:9,147:10"></pre>
+  <ol class="co">
+    <li data-n="6"><div>The four places a name can be in a SELECT, as a <code>Copy</code> enum. Being <code>Copy</code> lets the code match on <code>(o.state, …)</code> without moving out of <code>o</code>.</div></li>
+    <li data-n="7"><div>One open SELECT on the stack. Nesting depth is tracked by parenthesis count.</div></li>
+    <li data-n="8"><div><code>close</code> is a closure that takes both vectors as <code>&amp;mut</code> parameters (the "pass the borrow in" technique from <a class="ref" href="#s-group"></a>), so the main loop can keep using <code>stack</code> and <code>out</code> between calls.</div></li>
+    <li data-n="9"><div><code>stack.pop().unwrap()</code> gives an owned <code>Open</code>…</div></li>
+    <li data-n="10"><div>…and <code>let mut b = o.block;</code> moves the block out of it (a partial move). <code>retain</code> then drops refs that are really select-list aliases, while <code>o.aliases</code> is still readable.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/sqlscope.rs:203-224" data-mark="203:11,205:12,206:13,207:14,211:15,213:16,221:17"></pre>
+  <ol class="co">
+    <li data-n="11"><div><code>let Some(o) = stack.last_mut() else { continue };</code> borrows the top block mutably…</div></li>
+    <li data-n="12"><div><code>matches!</code> with an or-pattern of string literals.</div></li>
+    <li data-n="13"><div>…its last use is here (<code>o.aliases.clone()</code>)…</div></li>
+    <li data-n="14"><div>…so <code>close(&amp;mut stack, …)</code> on the next line is allowed. NLL once more: the <code>&amp;mut</code> into <code>stack</code> is over, so the whole stack can be borrowed again.</div></li>
+    <li data-n="15"><div>Matching a tuple of <code>(State, &amp;str)</code> is a compact transition table: "in this state, on this word, go there".</div></li>
+    <li data-n="16"><div>An or-pattern <em>inside</em> a tuple pattern: <code>(State::List | State::Into, "FROM")</code>.</div></li>
+    <li data-n="17"><div>A binding plus a guard inside a tuple pattern: <code>(State::From, w) if FROM_END.contains(&amp;w)</code>.</div></li>
+  </ol>
+</section>
+
+<!-- ============================================================ 7 -->
+<section class="stop" id="s-options" data-title="IndexOptions: a struct that borrows" data-group="build.rs, the core" data-c="life dyn conc opt clos">
+  <div class="stop-head"><span class="num"></span><h2>IndexOptions: a struct that borrows</h2></div>
+  <div class="files">crates/ifsdep-core/src/build.rs</div>
+  <div class="prose"><p>This is the entry point. <code>IndexOptions</code> is the one public struct with a lifetime parameter, and the way it's used shows how lifetimes, trait objects and error types fit together.</p></div>
+  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:17-33" data-mark="18:1,19:2,25:3,28:4,33:5"></pre>
+  <ol class="co">
+    <li data-n="1"><div><code>IndexOptions&lt;'a&gt;</code> means "this struct holds borrows that live at least as long as <code>'a</code>". An <code>IndexOptions</code> value can't outlive the paths, flag or callback it points to. Deriving <code>Default</code> works because every field is an <code>Option</code>, and <code>Option&lt;&amp;T&gt;</code> defaults to <code>None</code>.</div></li>
+    <li data-n="2"><div><code>Option&lt;&amp;'a Path&gt;</code>, not <code>Option&lt;PathBuf&gt;</code>. The caller already owns the paths, and indexing only reads them. The CLI converts its <code>Option&lt;PathBuf&gt;</code> with <code>core.as_deref()</code> (<a class="ref" href="#s-cli"></a>).</div></li>
+    <li data-n="3"><div>A <em>shared</em> reference that the other side can still change. <code>AtomicBool</code> has <strong>interior mutability</strong>: <code>store</code> and <code>load</code> take <code>&amp;self</code>. That's how the Tauri thread can cancel a running index through a <code>&amp;</code> (<a class="ref" href="#s-tauri"></a>).</div></li>
+    <li data-n="4"><div>A <strong>trait object</strong>: "a reference to some callable taking <code>(&amp;str, usize, usize)</code>, whose concrete type we don't know". Calls go through a vtable (dynamic dispatch). The parentheses are required, because <code>&amp;dyn A + B</code> is ambiguous. <code>+ Sync</code> requires the callback to be safe to share between threads. Nothing in the core crate starts a thread (I checked); the Tauri caller runs indexing on a worker thread.</div></li>
+    <li data-n="5"><div>A <strong>unit struct</strong> as an error type. It carries no data, but it's a distinct type, so <code>Result&lt;Index, Cancelled&gt;</code> says exactly what can go wrong.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:74-96" data-mark="77:6,80:7,82:8,83:9,89:10"></pre>
+  <ol class="co">
+    <li data-n="6"><div>Two nice details. First, <code>|Cancelled|</code> is a <em>pattern</em> in a closure parameter: since <code>Cancelled</code> has one possible value, the pattern can't fail. Second, <code>..Default::default()</code> fills every other field.</div></li>
+    <li data-n="7"><div>The two-function design: <code>try_index</code> returns a <code>Result</code> for callers who need to know about cancellation (Tauri), and <code>index</code> wraps it for callers who don't (CLI, tests).</div></li>
+    <li data-n="8"><div>A closure that returns <code>Result&lt;(), Cancelled&gt;</code>, so every stage can write <code>check()?;</code>. It captures <code>opts</code>, which is already a reference, so it copies that reference. <code>is_some_and</code> runs the test only on <code>Some</code>. <code>Ordering::Relaxed</code> is enough for a stop flag: it only promises the other thread's write is eventually seen, with no ordering against other memory.</div></li>
+    <li data-n="9"><div>A wrapper closure so the rest of the function can call <code>report(…)</code> without checking for <code>None</code> each time.</div></li>
+    <li data-n="10"><div><code>opts.core.map(|p| p.display().to_string())</code>: <code>Option&lt;&amp;Path&gt;</code> becomes <code>Option&lt;String&gt;</code>. <code>display()</code> returns a wrapper that implements <code>Display</code> (paths may not be valid UTF-8), and <code>to_string()</code> formats it.</div></li>
+  </ol>
+</section>
+
+<!-- ============================================================ 8 -->
+<section class="stop" id="s-parse" data-title="Stage 1: reading files into a sum type" data-group="build.rs, the core" data-c="own pat iter coll str opt">
+  <div class="stop-head"><span class="num"></span><h2>Stage 1: reading files into a sum type</h2></div>
+  <div class="files">crates/ifsdep-core/src/build.rs</div>
+  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:35-41" data-mark="35:1"></pre>
+  <ol class="co">
+    <li data-n="1"><div>An enum whose variants hold different data: a <strong>sum type</strong> ("tagged union"). One <code>Vec&lt;Parsed&gt;</code> can hold every parser's output, and <code>match</code> forces every use to handle every kind. If you add a parser, the compiler lists every <code>match</code> you need to update.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:95-155" data-mark="95:2,98:3,99:4,101:5,109:6,110:7,115:8,121:9,130:10,137:11,140:12,143:13,153:14"></pre>
+  <ol class="co">
+    <li data-n="2"><div><code>parsed</code> is a local variable, not a field of <code>Index</code>, and <code>parsed[i]</code> always matches <code>idx.files[i]</code>. Keeping them separate pays off in <a class="ref" href="#s-objects"></a>: the code can read <code>parsed</code> while it mutates <code>idx</code>.</div></li>
+    <li data-n="3"><div>A <code>for</code> loop over an array of tuples, by value. <code>opts.core</code> is <code>Option&lt;&amp;Path&gt;</code>, which is <code>Copy</code>, so building the array copies it.</div></li>
+    <li data-n="4"><div>let-else with <strong>shadowing</strong>: the new <code>root</code> (<code>&amp;Path</code>) hides the old one (<code>Option&lt;&amp;Path&gt;</code>). Shadowing is idiomatic when a value changes type as it's checked.</div></li>
+    <li data-n="5"><div>Inline format arguments: <code>{layer:?}</code> uses the <code>Debug</code> output of a variable in scope, here <code>Core</code> or <code>Cust</code>.</div></li>
+    <li data-n="6"><div><code>files.into_iter()</code> <em>consumes</em> the vector, so each <code>s</code> is an owned <code>Scanned</code>. You can move fields out of it (point 13). <code>iter()</code> would give <code>&amp;Scanned</code> instead.</div></li>
+    <li data-n="7"><div><code>check()?</code> inside the loop: cancellation is checked between files.</div></li>
+    <li data-n="8"><div>Read bytes, then decode loosely. IFS files aren't always valid UTF-8, and <code>read_to_string</code> would fail on them. <code>from_utf8_lossy</code> returns a <code>Cow</code> that borrows when the bytes are clean, and <code>into_owned()</code> makes a <code>String</code>.</div></li>
+    <li data-n="9"><div>Each match arm builds a different variant. <code>&amp;text</code> is <code>&amp;String</code>, which coerces to the <code>&amp;str</code> the parsers ask for.</div></li>
+    <li data-n="10"><div><code>match &amp;p</code>: matching on a reference makes every binding a reference (<strong>default binding modes</strong>). <code>m</code> is <code>&amp;ParsedMarble</code>, so <code>m.component.clone()</code> copies the field without moving out of <code>p</code>, which is still needed on line 153.</div></li>
+    <li data-n="11"><div><code>or_else</code> and <code>unwrap_or_else</code> take closures, so the fallback is computed only when needed. <code>unwrap_or("UNKNOWN".into())</code> would allocate the string every time.</div></li>
+    <li data-n="12"><div>The <strong>entry API</strong>: <code>entry(k).or_default()</code> returns <code>&amp;mut V</code>, inserting <code>0</code> if the key is missing, and <code>*… += 1</code> increments through it. One lookup instead of a <code>get</code>/<code>insert</code> pair.</div></li>
+    <li data-n="13"><div><code>rel_path: s.rel</code> <em>moves</em> the <code>String</code> out of <code>s</code> (a <strong>partial move</strong>), and the next line still uses <code>s.abs</code>. That's allowed because <code>s</code> is owned and the two fields are separate. After this you couldn't use <code>s</code> as a whole.</div></li>
+    <li data-n="14"><div><code>parsed.push(p)</code> moves the parsed record into the parallel vector. The <code>continue</code> on line 118 runs before either push, so the two vectors stay aligned.</div></li>
+  </ol>
+</section>
+
+<!-- ============================================================ 9 -->
+<section class="stop" id="s-group" data-title="Stage 2: grouping, and borrowing struct fields separately" data-group="build.rs, the core" data-c="borrow clos coll pat">
+  <div class="stop-head"><span class="num"></span><h2>Stage 2: grouping, and borrowing struct fields separately</h2></div>
+  <div class="files">crates/ifsdep-core/src/build.rs</div>
+  <div class="prose"><p><code>X.fragment</code> (Core) and <code>X-Cust.fragment</code> (Cust) become one unit. The logic is simple, but the borrows are instructive: the code holds a mutable borrow of one field of <code>idx</code> while reading another.</p></div>
+  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:159-212" data-mark="160:1,169:2,177:3,181:4,195:5,196:6,202:7,212:8"></pre>
+  <ol class="co">
+    <li data-n="1"><div>A tuple as a <code>HashMap</code> key. This works because both <code>UnitKind</code> and <code>String</code> implement <code>Hash + Eq</code>. The name is upper-cased so lookups ignore case, and the map stores the unit's position in <code>idx.units</code> (the arena again).</div></li>
+    <li data-n="2"><div>Matching a tuple of <code>(&amp;Parsed, FileKind)</code> at once is a clean way to dispatch on two things. Each arm destructures a reference, so <code>m</code> is <code>&amp;ParsedMarble</code>.</div></li>
+    <li data-n="3"><div><code>_ =&gt; continue</code>: a match arm whose type is <code>!</code> (never) fits in an expression that expects a tuple, because <code>!</code> converts to any type.</div></li>
+    <li data-n="4"><div><code>or_insert_with(|| { … })</code> runs the closure only for a new key, and the closure itself pushes to <code>idx.units</code>. <code>unit_map</code> and <code>idx</code> are different variables, so borrowing one mutably while the closure mutates the other is fine. The leading <code>*</code> copies the <code>usize</code> out of the returned <code>&amp;mut usize</code>, which ends that borrow right away.</div></li>
+    <li data-n="5"><div><code>for u in &amp;mut idx.units</code>: <code>u</code> is <code>&amp;mut Unit</code>, and the loop holds a mutable borrow of <code>idx.units</code> the whole time…</div></li>
+    <li data-n="6"><div>…while this closure reads <code>idx.files</code>. In <strong>edition 2021</strong> a closure captures only the fields it uses (<code>idx.files</code>), not all of <code>idx</code>, so it doesn't clash with the borrow of <code>idx.units</code>. I verified this: the same shape compiled as edition 2018 fails with E0502.</div></li>
+    <li data-n="7"><div><code>&amp;mut idx.files[f]</code> while <code>u</code> (in <code>idx.units</code>) is also borrowed mutably. Borrowing <strong>disjoint fields</strong> of one struct through direct field access is always allowed. It would fail through a method like <code>idx.files_mut()</code>, because the compiler can't see inside a method's body to know which fields it touches.</div></li>
+    <li data-n="8"><div>A deliberate choice: <code>file_unit</code> takes <code>idx</code> as a <em>parameter</em> instead of capturing it. A capturing closure would hold a borrow of <code>idx</code> for as long as it exists, which would block every later <code>idx.objects.push(…)</code>. Passing the borrow in on each call keeps each borrow short. <code>.map(id_index)</code> passes a function by name where a closure is expected.</div></li>
+  </ol>
+  <div class="box try">
+    <h3>see edition 2021 do its job</h3>
+    <p>A minimal copy of lines 195–197 compiles under <code>--edition 2021</code>. Under <code>--edition 2018</code> rustc reports:</p>
+    <pre>error[E0502]: cannot borrow `idx` as immutable because it is also borrowed as mutable</pre>
+    <p>In 2018 the closure captured <code>idx</code> as a whole. In 2021 it captures only the path <code>idx.files</code>.</p>
+  </div>
+</section>
+
+<!-- ============================================================ 10 -->
+<section class="stop" id="s-objects" data-title="Stage 3: objects, and making a reference live long enough" data-group="build.rs, the core" data-c="life borrow clos coll pat iter own">
+  <div class="stop-head"><span class="num"></span><h2>Stage 3: objects, and making a reference live long enough</h2></div>
+  <div class="files">crates/ifsdep-core/src/build.rs</div>
+  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:216-246" data-mark="217:1,222:2,243:3"></pre>
+  <ol class="co">
+    <li data-n="1"><div>References to resolve <em>later</em> are queued with owned copies: <code>(object index, Ref)</code>. Names can only be resolved once every object exists, a classic two-pass design.</div></li>
+    <li data-n="2"><div>Iterating over <code>&amp;parsed[fi]</code> while pushing into <code>idx.objects</code>. This is the payoff of keeping <code>parsed</code> as its own variable (<a class="ref" href="#s-parse"></a>). If parsed data lived inside <code>idx</code>, this loop would need a shared and a mutable borrow of <code>idx</code> at once.</div></li>
+    <li data-n="3"><div><code>r.clone()</code>: <code>r</code> is borrowed from <code>parsed</code>, and the queue has to own its items.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:279-349" data-mark="280:4,283:5,293:6,296:7,297:8,301:9,307:10,309:11,343:12"></pre>
+  <ol class="co">
+    <li data-n="4"><div>A bare <code>{ … }</code> block limits the scope of everything inside it. <code>by_lu</code>, <code>declared_in</code> and the borrows they hold are dropped at the closing brace.</div></li>
+    <li data-n="5"><div>A nested pattern: an enum variant, then a struct, then <code>Some</code> of a tuple. <code>..</code> ignores the other fields and <code>_</code> ignores the line number. Because the match is on <code>&amp;parsed[fi]</code>, <code>lu</code> binds as <code>&amp;String</code>.</div></li>
+    <li data-n="6"><div><code>let none = HashSet::new();</code> outside the loop is a lifetime fix. See point 9.</div></li>
+    <li data-n="7"><div>Sorting by a <code>bool</code> key: <code>false &lt; true</code>, so Core files (key <code>false</code>) come first.</div></li>
+    <li data-n="8"><div>let-else on an enum variant: "this must be an entity, otherwise skip".</div></li>
+    <li data-n="9"><div><code>declared_in.get(&amp;unit_id)</code> gives <code>Option&lt;&amp;HashSet&gt;</code>, so the fallback must be a <code>&amp;HashSet</code> that lives as long as <code>declared</code> is used. A reference to a temporary, <code>unwrap_or(&amp;HashSet::new())</code>, would be dropped at the end of the statement. I compiled that version and got <code>error[E0716]: temporary value dropped while borrowed</code>. Binding <code>none</code> to a name makes it live until the end of the block.</div></li>
+    <li data-n="10"><div>An <code>FnMut</code> closure, because it changes its captured <code>made</code> set. It takes <code>idx: &amp;mut Index</code> as a parameter rather than capturing it (the same trick as <a class="ref" href="#s-group"></a>, point 8), so the loop can still use <code>idx</code> between calls.</div></li>
+    <li data-n="11"><div><code>HashSet::insert</code> returns <code>false</code> if the value was already there, so <code>!made.insert(upper)</code> means "skip duplicates" in one call. It also moves <code>upper</code> into the set.</div></li>
+    <li data-n="12"><div><code>[get, getter].into_iter().flatten()</code> walks two <code>Option&lt;usize&gt;</code>s and skips the <code>None</code>s. In edition 2021, <code>.into_iter()</code> on an array yields values, so <code>o</code> is a <code>usize</code>.</div></li>
+  </ol>
+</section>
+
+<!-- ============================================================ 11 -->
+<section class="stop" id="s-edges" data-title="Stage 4: edges, and collecting before you change" data-group="build.rs, the core" data-c="clos coll borrow iter pat">
+  <div class="stop-head"><span class="num"></span><h2>Stage 4: edges, and collecting before you change</h2></div>
+  <div class="files">crates/ifsdep-core/src/build.rs</div>
+  <div class="prose"><p>One rule shapes this whole function: <strong>build new things in local variables, and read existing things from <code>idx</code></strong>. <code>edges</code> is a local <code>Vec</code> until line 970 (<code>idx.edges = edges;</code>), so closures can borrow <code>idx</code> freely while new edges are pushed.</p></div>
+  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:355-381" data-mark="357:1,362:2,380:3,381:4"></pre>
+  <ol class="co">
+    <li data-n="1"><div><code>push_edge</code> takes <code>&amp;mut Vec&lt;Edge&gt;</code> as a parameter. If it captured <code>edges</code> mutably, nothing else could touch <code>edges</code> while <code>push_edge</code> was still in use. <code>let mut e = e;</code> rebinds the parameter as mutable.</div></li>
+    <li data-n="2"><div><code>edge</code> captures nothing, so it acts like a plain <code>fn</code> (it could even coerce to a <code>fn</code> pointer). Writing it as a closure keeps it next to the code that uses it.</div></li>
+    <li data-n="3"><div><code>lookup</code> captures <code>layer</code>, <code>unit_map</code> and <code>idx</code> by shared reference. That's fine because nothing in this loop changes <code>idx</code>.</div></li>
+    <li data-n="4"><div><code>.copied()</code> turns <code>Option&lt;&amp;usize&gt;</code> into <code>Option&lt;usize&gt;</code>, and <code>.filter(…)</code> turns <code>Some</code> into <code>None</code> when the test fails. This one line encodes the model rule "Core code only sees Core".</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:406-435" data-mark="408:5,414:6,418:7,424:8"></pre>
+  <ol class="co">
+    <li data-n="5"><div>A <code>BTreeMap</code>, not a <code>HashMap</code>, so iteration follows key order. <code>HashMap</code> iteration order is randomized on every run (DoS protection), and that would make edge ids and findings vary from run to run. Commit 81df359 ("Make DATATYPE_MISMATCH findings the same on every run") is the same concern elsewhere. <code>Option&lt;String&gt;</code> works in the key because it's <code>Ord</code>.</div></li>
+    <li data-n="6"><div>A fallback chain: the call's own <code>$IF</code> guard, otherwise the enclosing method's <code>@DynamicComponentDependency</code>. <code>and_then</code> chains steps that may each return nothing.</div></li>
+    <li data-n="7"><div><code>or_insert</code> with a tuple, then updating fields through <code>entry.0</code> and <code>entry.2</code>.</div></li>
+    <li data-n="8"><div>Destructuring nested tuples in a <code>for</code> pattern. <code>in agg</code> (not <code>&amp;agg</code>) consumes the map, so <code>guard</code> and <code>methods</code> are owned and can move into the edge without cloning.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:441-461" data-mark="443:9,449:10,455:11"></pre>
+  <ol class="co">
+    <li data-n="9"><div><strong>Collect, then change.</strong> The loop needs to read <code>edges</code> and push to it. You can't push to a <code>Vec</code> while an iterator over it is alive, since the push could reallocate under the iterator. So the needed pairs are first copied into an owned <code>Vec</code>…</div></li>
+    <li data-n="10"><div>…and the include edges are copied too (<code>.cloned().collect()</code>). After that, the inner loop's <code>push_edge(&amp;mut edges, …)</code> conflicts with nothing. This is the most common fix for "cannot borrow as mutable because it is also borrowed as immutable".</div></li>
+    <li data-n="11"><div><code>HashSet::insert</code> returning <code>bool</code> as a guard against duplicates, again.</div></li>
+  </ol>
+</section>
+
+<!-- ============================================================ 12 -->
+<section class="stop" id="s-resolve" data-title="Stage 5: name resolution with Rc and trait-object closures" data-group="build.rs, the core" data-c="smart clos dyn borrow opt iter coll">
+  <div class="stop-head"><span class="num"></span><h2>Stage 5: name resolution with <code>Rc</code> and trait-object closures</h2></div>
+  <div class="files">crates/ifsdep-core/src/build.rs</div>
+  <div class="prose"><p>This is the hardest Rust in the codebase. <code>resolve</code> answers "which declaration does this name refer to?" by ranking candidates: same unit, then reachable units, then units reachable from a client or projection this unit ends up in. Reachability is computed lazily and cached.</p></div>
+  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:480-576" data-mark="490:1,491:2,506:3,530:4,531:5,533:6,541:7,555:8,556:9,565:10,570:11,574:12"></pre>
+  <ol class="co">
+    <li data-n="1"><div>A memo cache whose values are <code>Rc&lt;HashSet&lt;usize&gt;&gt;</code>: reference-counted, shared ownership, single-threaded. Point 3 explains why it's not a plain <code>&amp;HashSet</code>.</div></li>
+    <li data-n="2"><div><code>let mut closure</code>: the closure changes <code>closure_cache</code>, which makes it <code>FnMut</code>, and calling an <code>FnMut</code> needs <code>&amp;mut</code> access to the closure itself. It reads <code>adjacency</code> by shared reference.</div></li>
+    <li data-n="3"><div><code>.clone()</code> on an <code>Rc</code> bumps a counter. It doesn't copy the set. Returning a <em>reference</em> into the cache isn't possible: an <code>FnMut</code> closure can't hand out a borrow of its own captured state that outlives the call (Rust has no "lending closures"). Even if it could, holding that borrow would lock the closure, and line 565 calls <code>closure(r)</code> again while <code>reach</code> from line 555 is still alive. With <code>Rc</code>, each caller owns its handle and the cache stays free.</div></li>
+    <li data-n="4"><div><code>resolve</code> is a closure with typed parameters and an explicit return type. It captures <code>by_name</code>, <code>roots_of</code> and <code>file_root</code> by shared reference.</div></li>
+    <li data-n="5"><div><code>closure: &amp;mut dyn FnMut(usize) -&gt; Rc&lt;HashSet&lt;usize&gt;&gt;</code>: the memoized closure is <em>passed in</em> rather than captured. If <code>resolve</code> captured it mutably, <code>closure</code> would stay locked as long as <code>resolve</code> exists, and later direct calls (line 765, <code>closure(*p)</code>) would fail to compile. Callers write <code>&amp;mut closure</code>.</div></li>
+    <li data-n="6"><div><code>accept: &amp;dyn Fn(&amp;Object) -&gt; bool</code>: each call site passes its own filter closure. Every closure has its own unique, unnameable type, so <code>&amp;dyn Fn</code> is how one parameter accepts all of them. <code>objects: &amp;[Object]</code> is a parameter for the same reason as <code>idx</code> in <a class="ref" href="#s-group"></a>: the caller changes <code>idx.objects</code> between calls.</div></li>
+    <li data-n="7"><div><code>?</code> inside a closure returns from <em>the closure</em>, not from <code>try_index</code>. An unknown name gives <code>None</code>.</div></li>
+    <li data-n="8"><div><code>reach</code> holds one <code>Rc</code>, the set of units reachable from <code>from_unit</code>…</div></li>
+    <li data-n="9"><div><code>.map(Vec::as_slice).unwrap_or_default()</code>: <code>Option&lt;&amp;Vec&lt;usize&gt;&gt;</code> becomes <code>&amp;[usize]</code>, with an empty slice as the default (the <code>Default</code> for <code>&amp;[T]</code> is <code>&amp;[]</code>). Passing a method by path, <code>Vec::as_slice</code>, avoids writing <code>|v| v.as_slice()</code>.</div></li>
+    <li data-n="10"><div>…and here <code>closure(r)</code> is called again while <code>reach</code> is still alive. That only compiles because each call returns its own <code>Rc</code>.</div></li>
+    <li data-n="11"><div><code>return None</code> inside <code>filter_map</code>'s closure drops that candidate. Again, it returns from the closure only.</div></li>
+    <li data-n="12"><div><code>min_by_key</code> picks the best rank. <code>|&amp;(rank, _)| rank</code> destructures a <em>reference</em> to a tuple right in the parameter list.</div></li>
+  </ol>
+</section>
+
+<!-- ============================================================ 13 -->
+<section class="stop" id="s-overrides" data-title="Overrides: cloning to end a borrow" data-group="build.rs, the core" data-c="own borrow clos dyn">
+  <div class="stop-head"><span class="num"></span><h2>Overrides: cloning to end a borrow</h2></div>
+  <div class="files">crates/ifsdep-core/src/build.rs</div>
+  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:578-626" data-mark="583:1,589:2,592:3,597:4,608:5,613:6"></pre>
+  <ol class="co">
+    <li data-n="1"><div><code>let o = idx.objects[oi].clone();</code> is the simplest fix for a borrow conflict. <code>o</code> is used until line 623 (<code>o.modifier.clone()</code>), but lines 608 and 613 write to <code>idx.objects[oi]</code>. A reference (<code>&amp;idx.objects[oi]</code>) would still be alive during those writes, so the compiler would reject them. Cloning means <code>o</code> borrows nothing. The cost is copying an <code>Object</code>'s <code>String</code>s once per override, which is cheap at this scale.</div></li>
+    <li data-n="2"><div>Passing <code>&amp;idx.objects</code> and <code>&amp;mut closure</code> into <code>resolve</code>. Both borrows end when the call returns.</div></li>
+    <li data-n="3"><div><code>&amp;|c: &amp;Object| { … }</code> makes a closure and takes a reference to it in one go. The closure is a temporary that lives until the end of the <code>let base = …;</code> statement, which is long enough for the call. It borrows <code>group</code>, <code>is_plsql</code> and <code>o</code>.</div></li>
+    <li data-n="4"><div>Comparing two <code>Option&lt;String&gt;</code>s with <code>==</code> compares what's inside (<code>None == None</code> is <code>true</code>). That comes from the derived <code>PartialEq</code> on <code>Option</code>.</div></li>
+    <li data-n="5"><div>A write to <code>idx.objects</code>. It's allowed because <code>o</code> is a clone and <code>resolve</code>'s borrow has ended.</div></li>
+    <li data-n="6"><div><code>if let Some(b) = base</code>: <code>base</code> is <code>Option&lt;usize&gt;</code>, which is <code>Copy</code>, so matching it doesn't consume anything.</div></li>
+  </ol>
+</section>
+
+<!-- ============================================================ links -->
+<section class="stop" id="s-links" data-title="Stage 5: references, plsvc methods, calls" data-group="build.rs, the core" data-c="clos pat coll iter smart opt">
+  <div class="stop-head"><span class="num"></span><h2>Stage 5: references, plsvc methods, calls</h2></div>
+  <div class="files">crates/ifsdep-core/src/build.rs</div>
+  <div class="prose"><p>With overrides resolved, stage 5 links everything the parsers queued: Marble references and calls, projection actions to their <code>.plsvc</code> methods, and PL/SQL method calls and table reads. This is where most object-level edges come from, and what the Objects view draws.</p></div>
+  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:689-744" data-mark="690:1,695:2,697:3,722:4,725:5,735:6,736:7,738:8"></pre>
+  <ol class="co">
+    <li data-n="1"><div><code>for (oi, r) in &amp;pending_refs</code>: iterating a <code>&amp;Vec&lt;(usize, Ref)&gt;</code> binds <code>oi: &amp;usize</code> and <code>r: &amp;Ref</code> (default binding modes). That's why the code writes <code>*oi</code>.</div></li>
+    <li data-n="2"><div>Each match arm evaluates to an <code>(Option&lt;String&gt;, EdgeKind)</code> pair: where the link goes, if it resolved, and what kind it is. One <code>if let</code> at the end then handles every case.</div></li>
+    <li data-n="3"><div>An enumeration reference resolves only to declarations of kind <code>enumeration</code>. The filter is a closure passed as <code>&amp;dyn Fn</code> (<a class="ref" href="#s-resolve"></a>).</div></li>
+    <li data-n="4"><div>A closure that captures <code>idx</code> and <code>oi</code> and is defined inside a function call's argument list. It lives just long enough for the call.</div></li>
+    <li data-n="5"><div><code>Option::is_none_or</code> (Rust 1.82): "no target, or the target passes". It's the mirror of <code>is_some_and</code>, and saves a <code>match</code>.</div></li>
+    <li data-n="6"><div><code>fetch = "Shop_Order_API.Get_X()"</code> in Marble becomes an <code>Invokes</code> edge to the PL/SQL method, through <code>package_method</code>, which follows the same "Core sees only Core" rule.</div></li>
+    <li data-n="7"><div><code>rel_id</code> is the <code>FnMut</code> closure that finds or creates a relation by name (lines 632–644). Calling it needs a mutable borrow of the closure, which is fine inside the loop.</div></li>
+    <li data-n="8"><div>A reference that doesn't resolve simply gets no edge. Unresolved includes and projections became findings in stage 4. Object references don't, because an unknown name there usually means a generated or unindexed base.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:746-788" data-mark="748:9,757:10,765:11,767:12,779:13,780:14"></pre>
+  <ol class="co">
+    <li data-n="9"><div>Which <code>.plsvc</code> units can implement each projection or fragment's actions: a projection's own, plus those of every projection that includes the fragment.</div></li>
+    <li data-n="10"><div>An iterator chain: <code>enumerate → filter → filter_map → collect</code>. <code>filter_map</code> keeps only projections that have a plsvc and yields <code>(projection, plsvc)</code> pairs.</div></li>
+    <li data-n="11"><div><code>closure(*p).iter()</code>: the <code>Rc&lt;HashSet&gt;</code> from stage 5's cache derefs to <code>&amp;HashSet</code> automatically, so <code>.iter()</code> works on it directly.</div></li>
+    <li data-n="12"><div><code>entry(*f).or_default()</code> gives <code>&amp;mut Vec&lt;usize&gt;</code>. <code>!v.contains(s)</code> avoids duplicates, a fine choice for short lists.</div></li>
+    <li data-n="13"><div><code>.cloned().unwrap_or_default()</code> turns <code>Option&lt;&amp;Vec&gt;</code> into an owned <code>Vec</code>. <code>.map(Vec::as_slice).unwrap_or_default()</code> would borrow instead and skip the copy.</div></li>
+    <li data-n="14"><div>The naming rule IFS uses: projection action <code>DoIt</code> is implemented by <code>Do_It___</code>. Both splitting styles (<code>snake_name</code> and <code>snake_name_grouped</code>, <a class="ref" href="#s-plsql"></a>) are tried, each with and without the <code>___</code> suffix. A nested <code>find_map</code> plus <code>or_else</code> expresses "first match in priority order" without any loop variables.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:790-826" data-mark="792:15,796:16,797:17,803:18,806:19,809:20"></pre>
+  <ol class="co">
+    <li data-n="15"><div>let-else on the parsed record: only PL/SQL files.</div></li>
+    <li data-n="16"><div><code>let Some(&amp;from) = c.in_method.and_then(|m| method_objects.get(&amp;(fi, m))) else</code>. <code>in_method</code> is <code>Option&lt;usize&gt;</code>, <code>and_then</code> looks up the object, <code>get</code> returns <code>Option&lt;&amp;usize&gt;</code>, and <code>&amp;from</code> copies the number out. Calls outside any method are skipped.</div></li>
+    <li data-n="17"><div><code>if</code> as an expression: an unqualified call (<code>Check_Insert___</code>) looks in the same package, and a qualified one (<code>Pkg_API.M</code>) looks across packages.</div></li>
+    <li data-n="18"><div>Recursion isn't drawn as an edge from a method to itself.</div></li>
+    <li data-n="19"><div>Aggregation per <code>(from, to)</code> pair, in a <code>BTreeMap</code> so the edge order is the same every run (<a class="ref" href="#s-edges"></a>).</div></li>
+    <li data-n="20"><div>Consuming the map: <code>((from, to), (count, line))</code> destructured right in the <code>for</code>.</div></li>
+  </ol>
+</section>
+
+<!-- ============================================================ relations -->
+<section class="stop" id="s-relations" data-title="Stage 5: tables, views and their columns" data-group="build.rs, the core" data-c="coll clos opt iter borrow">
+  <div class="stop-head"><span class="num"></span><h2>Stage 5: tables, views and their columns</h2></div>
+  <div class="files">crates/ifsdep-core/src/build.rs</div>
+  <div class="prose"><p>Now every <code>Relation</code> gets its definitions: from a <code>.views</code> or <code>.storage</code> statement, or generated from an <code>.entity</code>. This stage also builds <code>cols</code>, the column table that COLUMN_AMBIGUOUS needs (<a class="ref" href="#s-analyze"></a>). <code>cols</code> isn't part of the index; it's passed to the rules separately.</p></div>
+  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:828-894" data-mark="830:1,833:2,839:3,846:4,852:5,853:6,860:7,873:8,885:9,887:10"></pre>
+  <ol class="co">
+    <li data-n="1"><div><code>analyze::Columns::default()</code>: the rules module defines the type it wants as input, and the builder fills it in.</div></li>
+    <li data-n="2"><div><code>.entity</code> files grouped by LU name, in a <code>BTreeMap</code> for a stable order.</div></li>
+    <li data-n="3"><div><code>ent</code> is a closure that unwraps the <code>Parsed::Entity</code> variant, with <code>unreachable!</code> for the other arms. Only entity file indices are ever passed in, and the macro documents that guarantee.</div></li>
+    <li data-n="4"><div><code>is_some_and</code> plus <code>split(',').any(…)</code>: "the implementation list contains <code>abstract</code>". The comment explains why a substring check would be wrong.</div></li>
+    <li data-n="5"><div><code>expect</code> with a message stating the guarantee: every group has at least one file.</div></li>
+    <li data-n="6"><div><code>[cust, core].into_iter().flatten().find_map(…)</code>: the first of two <code>Option&lt;usize&gt;</code>s that has a rename, Cust first, because the Cust file's rename wins.</div></li>
+    <li data-n="7"><div><code>unwrap_or</code> with a tuple: either the rename or the default names derived from the LU name.</div></li>
+    <li data-n="8"><div><code>core.map_or(HashSet::new(), |f| …collect())</code>: the columns Core's entity already has, or none for a pure-Cust LU. Note that <code>map_or</code> builds the default value even when it isn't used (an empty <code>HashSet</code> doesn't allocate, so that costs nothing here). <code>map_or_else</code> is the lazy version.</div></li>
+    <li data-n="9"><div>A column is "added by Cust" if a Cust file declares it and Core's doesn't. These are exactly the columns that can make Core SQL ambiguous.</div></li>
+    <li data-n="10"><div>A nested entry chain: <code>known.entry(rel).or_default().entry(c).or_insert_with(…)</code>. Two map levels, inserting at each level only if missing, with one lookup per level.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:905-946" data-mark="906:11,918:12,922:13,925:14,929:15,934:16"></pre>
+  <ol class="co">
+    <li data-n="11"><div>Only <code>.views</code> / <code>.storage</code> / <code>.cre</code> records.</div></li>
+    <li data-n="12"><div><code>v.modifier.as_ref().map_or("view".to_string(), |m| format!("view (@{m})"))</code>: a label built from an optional annotation.</div></li>
+    <li data-n="13"><div><code>v.columns.iter().flatten()</code> turns an <code>Option&lt;Vec&lt;String&gt;&gt;</code> into an iterator over the strings, or over nothing when it's <code>None</code>. <code>Option::iter</code> yields zero or one item.</div></li>
+    <li data-n="14"><div><code>core_cols.is_some_and(|cc| !cc.contains(c))</code>: a Cust <code>@Override</code> view adds a column that Core's view doesn't have.</div></li>
+    <li data-n="15"><div><code>*r != v.name</code>: <code>r</code> is <code>&amp;String</code> (from iterating <code>&amp;v.reads</code>), so <code>*r</code> is the <code>String</code>, compared by value. A view reading itself isn't an edge.</div></li>
+    <li data-n="16"><div>Calls made inside a view (<code>Xxx_API.Get(…)</code> in its SELECT) become <code>Invokes</code> edges from the view to the PL/SQL method.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:970-976" data-mark="970:17,972:18"></pre>
+  <ol class="co">
+    <li data-n="17"><div>The edges built as a local since stage 4 move into the index. From here on, <code>idx.edges</code> is the source of truth.</div></li>
+    <li data-n="18"><div><code>&amp;mut relations[…]</code>: <code>relations</code> has been mutably captured by the <code>rel_id</code> closure since line 632. That closure isn't used after this point, so its borrow is over and the vector can be borrowed directly. Closures follow the same NLL rules as any other borrow.</div></li>
+  </ol>
+</section>
+
+<!-- ============================================================ dyn rewrite -->
+<section class="stop" id="s-dyn" data-title="Stages 5–7: bindings, components, rules" data-group="build.rs, the core" data-c="dyn clos life pat coll own">
+  <div class="stop-head"><span class="num"></span><h2>Stages 5–7: bindings, components, rules</h2></div>
+  <div class="files">crates/ifsdep-core/src/build.rs</div>
+  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:948-969" data-mark="950:1,951:2,956:3,963:4"></pre>
+  <ol class="co">
+    <li data-n="1"><div>Cloning to end a borrow, as in <a class="ref" href="#s-overrides"></a>.</div></li>
+    <li data-n="2"><div><code>let Some(target) = &amp;o.target else</code>: matching on a reference makes <code>target</code> a <code>&amp;String</code>, so nothing moves out of <code>o</code>.</div></li>
+    <li data-n="3"><div><strong>Why <code>Box&lt;dyn Fn&gt;</code>:</strong> each branch of the <code>if</code> makes a different closure, and each closure has its own unnameable type, but an <code>if</code> expression must have one type. Boxing each closure as <code>Box&lt;dyn Fn(&amp;Object) -&gt; bool&gt;</code> erases those types into one. The type annotation on the <code>let</code> tells the compiler to do that conversion in every branch.</div></li>
+    <li data-n="4"><div><code>&amp;*accept</code>: <code>*</code> dereferences the <code>Box</code> to <code>dyn Fn</code>, and <code>&amp;</code> borrows it, giving the <code>&amp;dyn Fn</code> that <code>resolve</code> wants.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:980-1011" data-mark="981:5,983:6,991:7,995:8,998:9,1011:10"></pre>
+  <ol class="co">
+    <li data-n="5"><div>Stage 6: components by name, in a <code>BTreeMap</code> so they come out sorted.</div></li>
+    <li data-n="6"><div><code>entry(…).or_insert_with(|| Component { … })</code> builds the struct only for a new component, and returns <code>&amp;mut Component</code> either way.</div></li>
+    <li data-n="7"><div>A <code>match</code> used for its side effects. Each arm is an assignment expression, of type <code>()</code>.</div></li>
+    <li data-n="8"><div><code>parsed[fi]</code> again: the parallel vector from stage 1 still lines up with <code>idx.files</code>.</div></li>
+    <li data-n="9"><div><code>d.description.clone().or(c.description.take())</code>: prefer this file's description, otherwise keep the old one. <code>take()</code> moves the old value out so it can be put back without a clone.</div></li>
+    <li data-n="10"><div><code>comps.into_values().collect()</code>: consume the map and keep the values, already in name order.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:1013-1037" data-mark="1016:11,1017:12,1018:13,1031:14,1033:15,1036:16"></pre>
+  <ol class="co">
+    <li data-n="11"><div>Stage 7: <code>let mut findings = unresolved;</code> <em>moves</em> the unresolved-include findings from stage 4 into the new name. No copy.</div></li>
+    <li data-n="12"><div><code>analyze::run(&amp;idx, &amp;cols)</code> returns an owned <code>Vec&lt;Finding&gt;</code>, and <code>extend</code> moves its items in. The rules only read the index (<code>&amp;Index</code>), so they can't change it by accident.</div></li>
+    <li data-n="13"><div><code>Inputs</code> is a bundle of <em>borrows</em> into <code>parsed</code>, built just for the datatype rule (<a class="ref" href="#s-resolver"></a>).</div></li>
+    <li data-n="14"><div><code>datatypes::run(&amp;idx, inputs)</code> takes <code>inputs</code> by value. It's a cheap move of three vectors of pointers, and <code>parsed</code> stays alive in this frame underneath them.</div></li>
+    <li data-n="15"><div>The upgrade comparison runs only when a previous Core folder was given.</div></li>
+    <li data-n="16"><div><code>upgrade::run</code> takes <strong>out-parameters</strong> (<code>&amp;mut findings</code>, <code>&amp;mut notes</code>) instead of returning a tuple. It appends to existing vectors. Both styles are idiomatic. Returning values reads more clearly, and out-parameters let the callee add to existing buffers.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:1039-1061" data-mark="1039:17,1040:18,1044:19,1050:20,1054:21,1061:22"></pre>
+  <ol class="co">
+    <li data-n="17"><div>A mutable iteration over <code>findings</code>, a local <code>Vec</code> (not <code>idx.findings</code>)…</div></li>
+    <li data-n="18"><div>…so this closure can borrow <code>idx</code> freely. "Build locally, then move into <code>idx</code>" once more. <code>involves_cust</code> decides whether the UI shows the finding by default.</div></li>
+    <li data-n="19"><div>Matching on the first byte of an id: <code>Some(b'u')</code> is a unit, <code>Some(b'o')</code> an object.</div></li>
+    <li data-n="20"><div>A multi-key sort: <code>Ordering::then</code> moves to the next key on a tie. <code>severity.cmp</code> uses the derived <code>Ord</code> from <a class="ref" href="#s-model"></a>, so errors come first.</div></li>
+    <li data-n="21"><div><code>idx.findings = findings;</code> <em>moves</em> the vector into the index: the buffer changes owner, and nothing is copied.</div></li>
+    <li data-n="22"><div><code>Ok(idx)</code> moves the whole <code>Index</code> out to the caller. Returning large owned values by value is normal Rust, since a move is at most a shallow copy of the struct's fields.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:1064-1071" data-mark="1065:23"></pre>
+  <ol class="co">
+    <li data-n="23"><div>Elision with one reference input: the returned <code>&amp;Option&lt;…&gt;</code> borrows from <code>e</code>. Returning <code>&amp;Option&lt;T&gt;</code> is unusual. The more common signature is <code>Option&lt;&amp;T&gt;</code> (via <code>.as_ref()</code>). The caller immediately writes <code>.clone()</code> to get an owned copy.</div></li>
+  </ol>
+</section>
+
+<!-- ============================================================ graph rewrite -->
+<section class="stop" id="s-graph" data-title="CYCLE: Tarjan's algorithm and the cycle rule" data-group="Rules" data-c="pat borrow coll iter test">
+  <div class="stop-head"><span class="num"></span><h2>CYCLE: Tarjan's algorithm and the cycle rule</h2></div>
+  <div class="files">crates/ifsdep-core/src/analyze.rs · crates/ifsdep-core/src/graph.rs</div>
+  <pre class="code" data-src="crates/ifsdep-core/src/analyze.rs:40-50" data-mark="40:1,42:2,43:3"></pre>
+  <ol class="co">
+    <li data-n="1"><div>All rules share one shape: <code>&amp;Index</code> in, findings out. The index is read-only here.</div></li>
+    <li data-n="2"><div><code>Source</code> is a file-line cache shared by the rules that quote source lines as evidence (<a class="ref" href="#s-analyze"></a>).</div></li>
+    <li data-n="3"><div>Each rule appends to <code>out</code> through <code>&amp;mut Vec&lt;Finding&gt;</code>. The order of these calls doesn't matter, because <code>build.rs</code> sorts the findings at the end.</div></li>
+  </ol>
+  <div class="prose"><p>Tarjan's algorithm finds strongly connected components, sets of nodes that can all reach each other, which here means include cycles. It's usually written recursively, but a chain of 200,000 includes would overflow the stack, so this version keeps its own stack of <code>(node, position)</code> frames.</p></div>
+  <pre class="code" data-src="crates/ifsdep-core/src/graph.rs:4-61" data-mark="5:4,7:5,19:6,26:7,29:8,36:9,42:10,48:11"></pre>
+  <ol class="co">
+    <li data-n="4"><div><code>adj: &amp;[Vec&lt;usize&gt;]</code>, a slice, not <code>&amp;Vec&lt;Vec&lt;usize&gt;&gt;</code>. A slice accepts a <code>&amp;Vec</code> through deref coercion, plus arrays and sub-slices. Prefer <code>&amp;[T]</code> for read-only parameters.</div></li>
+    <li data-n="5"><div><code>vec![x; n]</code> repeats a value. <code>usize::MAX</code> stands for "not visited", a sentinel instead of <code>Option&lt;usize&gt;</code>. It's cheaper, but the compiler won't remind you to check for it.</div></li>
+    <li data-n="6"><div>The explicit call stack: each frame is <code>(node, index of next successor to visit)</code>.</div></li>
+    <li data-n="7"><div>The cleverest pattern in the repo. <code>work.last_mut()</code> returns <code>Option&lt;&amp;mut (usize, usize)&gt;</code>. The pattern <code>&amp;mut (v, ref mut pos)</code> matches <em>through</em> the mutable reference: <code>v</code> is copied out, and <code>ref mut pos</code> binds a <code>&amp;mut usize</code> pointing at the second field <em>inside the Vec</em>.</div></li>
+    <li data-n="8"><div><code>*pos += 1</code> moves the frame's cursor forward in place.</div></li>
+    <li data-n="9"><div><code>work.push(…)</code> needs <code>&amp;mut work</code> while <code>pos</code> still points into it. That's legal because <code>pos</code>'s last use was line 29, so NLL has already ended that borrow. Reading <code>*pos</code> after the push wouldn't compile, because the push might reallocate.</div></li>
+    <li data-n="10"><div><code>if let Some(&amp;(parent, _)) = work.last()</code>: destructure a shared reference to a tuple and copy out the first field.</div></li>
+    <li data-n="11"><div><code>stack.pop().unwrap()</code> is safe by the algorithm: <code>v</code> itself is on the stack, so the loop reaches it before the stack empties.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/graph.rs:82-89" data-mark="84:12"></pre>
+  <ol class="co">
+    <li data-n="12"><div>A test of the property that matters: no stack overflow on a 200,000-node ring.</div></li>
+  </ol>
+  <div class="prose"><p>Now the rule that uses it. A cycle in Core alone can't be your fault, and you can't change it anyway. The rule runs Tarjan twice, on Core-only include edges and on all of them, to tell "in Core" apart from "appears with the Cust layer".</p></div>
+  <pre class="code" data-src="crates/ifsdep-core/src/analyze.rs:206-266" data-mark="208:13,210:14,219:15,232:16,238:17,242:18,250:19,252:20,258:21,259:22,265:23"></pre>
+  <ol class="co">
+    <li data-n="13"><div><code>Vec&lt;&amp;Edge&gt;</code>: a filtered view of the edges made of references, with no copies. It's tied to <code>idx</code>'s lifetime.</div></li>
+    <li data-n="14"><div>A closure that builds an adjacency list, called twice with a <code>bool</code>. Closures are often the quickest way to factor out code that uses several locals.</div></li>
+    <li data-n="15"><div>A self-include (<code>A</code> includes <code>A</code>) is a one-node SCC, so it needs the extra check.</div></li>
+    <li data-n="16"><div><code>for scc in tarjan_scc(&amp;g)</code> consumes the returned <code>Vec&lt;Vec&lt;usize&gt;&gt;</code>, so <code>scc</code> is an owned <code>Vec&lt;usize&gt;</code>.</div></li>
+    <li data-n="17"><div>"Core-only" means every member sits in the same Core cycle.</div></li>
+    <li data-n="18"><div><code>members.iter()</code> yields <code>&amp;usize</code>, and <code>min_by_key</code> passes a reference to that, so the closure gets <code>&amp;&amp;usize</code>. <code>|&amp;&amp;m|</code> copies the number out of both layers. The alphabetical start makes the reported loop the same every run.</div></li>
+    <li data-n="19"><div>The shortest loop through that start, by breadth-first search (below).</div></li>
+    <li data-n="20"><div><code>.windows(2)</code> yields overlapping pairs <code>[a, b], [b, c], …</code>, one per hop of the path, without allocating.</div></li>
+    <li data-n="21"><div>Sorting by a tuple key <code>(bool, file, line)</code>: tuples compare field by field, so the preferred layer comes first, then file order.</div></li>
+    <li data-n="22"><div><code>*cands[0]</code>: <code>cands</code> holds <code>&amp;&amp;Edge</code> (a reference into <code>include_edges</code>, which holds <code>&amp;Edge</code>), and one <code>*</code> gives back the <code>&amp;Edge</code>.</div></li>
+    <li data-n="23"><div>The suggested break is the first <em>Cust</em> hop, the include you are allowed to change.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/analyze.rs:318-358" data-mark="324:24,325:25,330:26"></pre>
+  <ol class="co">
+    <li data-n="24"><div><code>adj.get(&amp;start).into_iter().flatten()</code>: <code>Option&lt;&amp;BTreeSet&gt;</code> becomes "the set's items, or nothing". It's the iterator version of <code>if let</code>.</div></li>
+    <li data-n="25"><div><code>if let Entry::Vacant(e) = parent.entry(v)</code>: match on the entry enum itself and insert only when the slot is empty. One hash lookup does both the "seen?" check and the insert.</div></li>
+    <li data-n="26"><div><code>VecDeque</code> as a FIFO queue: <code>push_back</code> plus <code>pop_front</code> is breadth-first search, so the first path back to <code>start</code> is the shortest.</div></li>
+  </ol>
+</section>
+
+<!-- ============================================================ rules -->
+<section class="stop" id="s-rules" data-title="Duplicates, overrides, connections, layers" data-group="Rules" data-c="coll borrow iter pat str">
+  <div class="stop-head"><span class="num"></span><h2>Duplicates, overrides, connections, layers</h2></div>
+  <div class="files">crates/ifsdep-core/src/analyze.rs</div>
+  <div class="prose"><p>Four rules that read the finished graph. They share one technique: build a map from some key to the things that share it, then report every key that has too many (or too few) entries. Most of these maps use <code>&amp;str</code> keys that borrow from <code>idx</code>.</p></div>
+  <pre class="code" data-src="crates/ifsdep-core/src/analyze.rs:362-401" data-mark="362:1,370:2,380:3,383:4,390:5,397:6,401:7"></pre>
+  <ol class="co">
+    <li data-n="1"><div>The identity of a declaration, as a <code>String</code> key such as <code>projection:entity:SHOPORDER</code>. Building a string key is simpler than defining a hashable struct, at the cost of a little allocation.</div></li>
+    <li data-n="2"><div>Commands are keyed by their <code>for</code> target too, since many dialogs have a <code>command Ok</code>. The domain rules live in this key function.</div></li>
+    <li data-n="3"><div><code>HashMap&lt;&amp;str, Vec&lt;usize&gt;&gt;</code>, with keys borrowed from each object's <code>unit</code> string.</div></li>
+    <li data-n="4"><div><code>.enumerate().filter(|(_, o)| !o.generated)</code>: a tuple pattern in a closure parameter. Generated getters are left out, because they're overloads, not duplicates.</div></li>
+    <li data-n="5"><div><code>by_unit.get(…).into_iter().flatten()</code>: "this unit's objects, or none".</div></li>
+    <li data-n="6"><div>Collecting into a <code>BTreeSet</code> counts distinct files and sorts them. Two or more files declaring the same key without <code>@Override</code> means a missing override.</div></li>
+    <li data-n="7"><div><code>find(…).unwrap_or(objs[0])</code>: prefer the Core declaration as "the base", else the first one.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/analyze.rs:441-478" data-mark="442:8,448:9,453:10,457:11,474:12,475:13"></pre>
+  <ol class="co">
+    <li data-n="8"><div>DUPLICATE_DEFINITION, part b: an adjacency map with <code>&amp;str</code> keys and values, all borrowed from the edges.</div></li>
+    <li data-n="9"><div>A <code>BTreeMap</code> keyed by <code>(Vec&lt;String&gt;, String)</code>: the set of units involved plus the declaration key. The same clash reached from several projections is reported once, listing all of them.</div></li>
+    <li data-n="10"><div>Depth-first search over <code>&amp;str</code> ids with a <code>Vec</code> stack and a <code>HashSet</code> of seen ids. No ids are cloned.</div></li>
+    <li data-n="11"><div><code>stack.extend(…map(|&amp;(to, _)| to))</code>: destructure each <code>&amp;(&amp;str, usize)</code> and push only the target.</div></li>
+    <li data-n="12"><div>Turning the borrowed <code>&amp;str</code>s into owned <code>String</code>s for the key, because the map outlives this loop's borrows.</div></li>
+    <li data-n="13"><div><code>or_insert_with(|| (Vec::new(), objs.clone()))</code>: start a report the first time a key is seen, then add each root that reaches it.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/analyze.rs:570-594" data-mark="572:14,573:15,578:16"></pre>
+  <ol class="co">
+    <li data-n="14"><div>OVERRIDE_NO_BASE: let-else on <code>&amp;o.modifier</code>, so only annotated objects go on.</div></li>
+    <li data-n="15"><div>Stage 5 already resolved the bases (<a class="ref" href="#s-overrides"></a>). This rule just reports what's left without one.</div></li>
+    <li data-n="16"><div><code>let mut f = if … { let mut f = …; …; f } else { … };</code>: blocks are expressions, and a block's last expression is its value. Each branch builds and returns its own finding.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/analyze.rs:619-673" data-mark="620:17,621:18,631:19,634:20,645:21,650:22,652:23"></pre>
+  <ol class="co">
+    <li data-n="17"><div>CONNECTION_MISSING: component lookup by name, <code>HashMap&lt;&amp;str, &amp;Component&gt;</code>, pointers only.</div></li>
+    <li data-n="18"><div>A dedupe set keyed by <code>(file, target, &amp;str)</code>. The third part is a literal tag (<code>"missing"</code> or <code>"dynamic"</code>), so one set serves both checks.</div></li>
+    <li data-n="19"><div>Calls within one component never need a connection.</div></li>
+    <li data-n="20"><div>let-else on a <code>HashMap::get</code>: <code>comp</code> is <code>&amp;&amp;Component</code> and auto-deref handles the rest.</div></li>
+    <li data-n="21"><div>Does the source component's deploy.ini declare the target?</div></li>
+    <li data-n="22"><div><code>match conn</code> with <code>None</code>, then a guarded <code>Some(c) if c.kind == "DYNAMIC" &amp;&amp; …</code> further down (line 674), then <code>_ =&gt; {}</code>. Missing and unguarded are two rules sharing one loop.</div></li>
+    <li data-n="23"><div><code>if !seen.insert(…) { continue; }</code>: report each (file, target) pair once.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/analyze.rs:720-746" data-mark="722:24,724:25,737:26"></pre>
+  <ol class="co">
+    <li data-n="24"><div>LAYER_MISMATCH: only files that declare a layer.</div></li>
+    <li data-n="25"><div>A <code>match</code> on the folder layer that returns a <code>bool</code>: "this file says Core but sits in Cust, or the other way round".</div></li>
+    <li data-n="26"><div><code>f.unit.iter().cloned().collect()</code>: <code>Option&lt;String&gt;</code> becomes a <code>Vec&lt;String&gt;</code> with zero or one item.</div></li>
+  </ol>
+</section>
+
+<!-- ============================================================ analyze rewrite -->
+<section class="stop" id="s-analyze" data-title="COLUMN_AMBIGUOUS, evidence, explicit lifetimes" data-group="Rules" data-c="life borrow coll str trait">
+  <div class="stop-head"><span class="num"></span><h2>COLUMN_AMBIGUOUS, evidence, explicit lifetimes</h2></div>
+  <div class="files">analyze.rs · upgrade.rs · tests/fixtures.rs</div>
+  <div class="prose"><p>The column rule catches a subtle upgrade-style break: Cust adds a column to a Core view or table, and Core SQL that read an unprefixed column name now finds it in two relations, so Oracle fails with ORA-00918. Core files can't change, so the rule points at the Cust attribute to rename. It re-reads only the SQL files that read an affected relation.</p></div>
+  <pre class="code" data-src="crates/ifsdep-core/src/analyze.rs:55-90" data-mark="56:1,60:2,70:3,71:4,73:5,74:6,80:7,81:8,85:9"></pre>
+  <ol class="co">
+    <li data-n="1"><div>Early return when Cust added no columns, the common case, so the rule costs nothing then.</div></li>
+    <li data-n="2"><div>A <code>BTreeSet</code> of file indices: deduplicated, and in file order.</div></li>
+    <li data-n="3"><div><code>HashMap&lt;&amp;str, &amp;str&gt;</code>, name to id, both borrowed from <code>idx.relations</code>.</div></li>
+    <li data-n="4"><div>A small helper closure returning an owned <code>String</code> (the file name after the last <code>/</code>).</div></li>
+    <li data-n="5"><div>The rule reads files from disk <em>again</em>: the index keeps no file text (that keeps it small), so rules that need text reload it. <code>let Ok(bytes) = … else { continue }</code> skips unreadable files.</div></li>
+    <li data-n="6"><div><code>sqlscope::prepare</code> then <code>blocks</code> (<a class="ref" href="#s-sqlscope"></a>): one block per SELECT, each with its FROM items and unprefixed names.</div></li>
+    <li data-n="7"><div><code>let Some(&amp;(_, line)) = b.refs.iter().find(|(r, _)| r == col) else</code>: <code>find</code> returns <code>Option&lt;&amp;(String, usize)&gt;</code>, and the <code>&amp;(_, line)</code> pattern copies the line number out.</div></li>
+    <li data-n="8"><div>Is there <em>another</em> FROM item with that column? <code>|&amp;(j, o)|</code> destructures the <code>&amp;(usize, &amp;FromItem)</code> that <code>find</code> passes in.</div></li>
+    <li data-n="9"><div>Report each (line, column) pair only once.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/analyze.rs:155-189" data-mark="157:10,162:11,163:12,168:13,173:14"></pre>
+  <ol class="co">
+    <li data-n="10"><div><code>Source</code> is the evidence cache. Each finding's "how this was found" quotes real source lines, and each file is loaded once.</div></li>
+    <li data-n="11"><div><code>&amp;mut self</code>, because the cache grows. Compare <code>RefCell</code> in <a class="ref" href="#s-resolver"></a>, where caching works through <code>&amp;self</code>.</div></li>
+    <li data-n="12"><div><code>entry(file).or_insert_with(…)</code> returns <code>&amp;mut Vec&lt;String&gt;</code> into the map and loads the file only on the first request.</div></li>
+    <li data-n="13"><div><code>line.checked_sub(1)</code> avoids a <code>usize</code> underflow (subtracting from 0 would panic in debug builds), then <code>.get(i)</code> (no out-of-range panic) and <code>.cloned()</code>.</div></li>
+    <li data-n="14"><div><code>title: impl Into&lt;String&gt;</code> is <strong>impl Trait in argument position</strong>: callers can pass a <code>&amp;str</code> literal or a <code>String</code> from <code>format!</code>, and <code>.into()</code> converts either one. It's shorthand for a generic parameter <code>&lt;T: Into&lt;String&gt;&gt;</code>.</div></li>
+  </ol>
+  <div class="prose">
+    <h3>When you have to write lifetimes</h3>
+    <p>Elision covers most functions. You have to write lifetimes out when the compiler can't tell which input an output borrows from. The rules:</p>
+    <ol>
+      <li>Each elided input reference gets its own lifetime.</li>
+      <li>If there's exactly one input lifetime, every output gets it.</li>
+      <li>If one input is <code>&amp;self</code> or <code>&amp;mut self</code>, outputs get <code>self</code>'s lifetime.</li>
+    </ol>
+    <p>With two reference inputs and no <code>self</code>, none of these apply, and leaving the lifetime off is error E0106.</p>
+  </div>
+  <pre class="code" data-src="crates/ifsdep-core/src/analyze.rs:191-193" data-mark="191:15"></pre>
+  <pre class="code" data-src="crates/ifsdep-core/src/upgrade.rs:535-544" data-mark="537:16,538:17"></pre>
+  <pre class="code" data-src="crates/ifsdep-core/tests/fixtures.rs:15-17" data-mark="15:18"></pre>
+  <ol class="co">
+    <li data-n="15"><div>Two reference inputs, <code>idx</code> and <code>id</code>. <code>&lt;'a&gt;</code> says the result borrows from <code>idx</code> only, so the id string can be a temporary that's dropped right away.</div></li>
+    <li data-n="16"><div>The same idea for strings: the rest comes from <code>s</code>, never from <code>prefix</code>.</div></li>
+    <li data-n="17"><div><code>s.get(..n)</code> returns <code>None</code> instead of panicking when <code>n</code> isn't a character boundary. Use it whenever an index comes from somewhere you don't control.</div></li>
+    <li data-n="18"><div>A <code>Vec</code> of borrows, <code>Vec&lt;&amp;'a Finding&gt;</code>: the test helpers return views into the index.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/analyze.rs:553-566" data-mark="553:19,555:20"></pre>
+  <ol class="co">
+    <li data-n="19"><div>Lifetimes inside generic types: a map whose keys are <code>&amp;'a str</code> borrowed from the edges. The returned map holds those same borrows, so it's tied to <code>'a</code> too.</div></li>
+    <li data-n="20"><div><code>HashSet::from([root])</code> and <code>VecDeque::from([root])</code>: collections built from array literals.</div></li>
+  </ol>
+</section>
+
+<!-- ============================================================ 19 -->
+<section class="stop" id="s-resolver" data-title="Resolver<'a>: RefCell and returning 'a" data-group="Rules" data-c="life smart iter clos trait">
+  <div class="stop-head"><span class="num"></span><h2><code>Resolver&lt;'a&gt;</code>: <code>RefCell</code> and returning <code>'a</code></h2></div>
+  <div class="files">crates/ifsdep-core/src/datatypes.rs (DATATYPE_MISMATCH rule) · build.rs</div>
+  <div class="prose"><p>The datatype rule follows a value through functions, views and tables, which takes recursion. The <code>Resolver</code> struct borrows the whole index for <code>'a</code>, caches through <code>&amp;self</code>, and hands out references that outlive its own methods.</p></div>
+  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:1018-1028" data-mark="1018:1,1021:2"></pre>
+  <pre class="code" data-src="crates/ifsdep-core/src/datatypes.rs:59-63" data-mark="59:3"></pre>
+  <ol class="co">
+    <li data-n="1"><div>Back in <code>build.rs</code>: <code>inputs</code> collects <em>references</em> into <code>parsed</code>, the local vector from <a class="ref" href="#s-parse"></a>.</div></li>
+    <li data-n="2"><div><code>(fi, e)</code>, where <code>e</code> is <code>&amp;ParsedEntity</code> because <code>parsed.iter()</code> yields references.</div></li>
+    <li data-n="3"><div><code>Inputs&lt;'a&gt;</code> is a struct of borrowed views. It moves into <code>datatypes::run</code> while <code>parsed</code> stays alive in <code>try_index</code>, and the compiler checks that <code>parsed</code> outlives it.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/datatypes.rs:170-202" data-mark="171:4,173:5,194:6,196:7,198:8,201:9"></pre>
+  <ol class="co">
+    <li data-n="4"><div><code>idx: &amp;'a Index</code>: the resolver borrows the finished index.</div></li>
+    <li data-n="5"><div>Maps whose values hold <code>&amp;'a</code> references: lookup tables over borrowed data, so building them copies no parsed records.</div></li>
+    <li data-n="6"><div><code>RefCell&lt;HashMap&lt;…&gt;&gt;</code>: <strong>interior mutability</strong> checked at runtime. <code>borrow_mut()</code> gives mutable access through <code>&amp;self</code>, and <em>panics</em> if another borrow is active. That's what lets a recursive method taking <code>&amp;self</code> also fill a cache.</div></li>
+    <li data-n="7"><div>A <code>RefCell&lt;HashSet&gt;</code> as a cycle guard during recursion (a view reading itself, mutually recursive functions).</div></li>
+    <li data-n="8"><div>For a <code>Copy</code> value like <code>usize</code>, <code>Cell&lt;usize&gt;</code> (<code>get</code>/<code>set</code>, no runtime borrow check) would also work. <code>RefCell</code> is the general tool.</div></li>
+    <li data-n="9"><div><code>impl&lt;'a&gt; Resolver&lt;'a&gt;</code> declares the lifetime for the impl block. <code>new</code> takes <code>idx: &amp;'a Index</code> and returns <code>Self</code>, which is <code>Resolver&lt;'a&gt;</code>.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/datatypes.rs:286-319" data-mark="287:10,297:11,298:12,304:13,308:14,309:15,312:16,317:17,318:18"></pre>
+  <ol class="co">
+    <li data-n="10"><div><code>self.lines.borrow_mut()</code> returns a <code>RefMut</code> guard. The runtime borrow lasts until the guard is dropped at the end of the function.</div></li>
+    <li data-n="11"><div><strong>Returning <code>&amp;'a</code>, not a borrow of <code>&amp;self</code>.</strong> Elision rule 3 would tie the result to <code>&amp;self</code>. Writing <code>Option&lt;&amp;'a Object&gt;</code> says the object lives as long as the <em>Index</em>, so callers can keep it after the resolver borrow ends, or while calling other <code>&amp;self</code> methods.</div></li>
+    <li data-n="12"><div><code>let &amp;u = …?;</code> is a pattern that dereferences: <code>get</code> returns <code>Option&lt;&amp;usize&gt;</code>, <code>?</code> unwraps it, and <code>&amp;u</code> copies the <code>usize</code> out.</div></li>
+    <li data-n="13"><div><code>self.lines.borrow()[&amp;file]</code> indexes a map by key (panicking if it's missing; the previous line guarantees it isn't), then <code>.clone()</code>s so the <code>Ref</code> guard can be dropped.</div></li>
+    <li data-n="14"><div>A generic method that takes <code>impl FnOnce() -&gt; Option&lt;T&gt;</code>: any closure called at most once. <code>FnOnce</code> is the least restrictive closure bound, so it accepts the most closures.</div></li>
+    <li data-n="15"><div>The <code>RefMut</code> made in this <code>if</code> condition is dropped as soon as the condition is evaluated…</div></li>
+    <li data-n="16"><div>…so <code>f()</code> can re-enter <code>guarded</code> recursively without a <code>BorrowMutError</code> panic. If the guard were kept in a <code>let</code> across this call, the recursion would panic at runtime. The compiler can't catch that for <code>RefCell</code>; it's on you.</div></li>
+    <li data-n="17"><div>Return-position <code>impl Iterator&lt;Item = (usize, &amp;'a Attribute)&gt; + '_</code> uses two lifetimes. The items borrow the data for <code>'a</code>. The iterator itself borrows <code>self</code> (it reads <code>self.lus</code>), and <code>+ '_</code> allows it to capture that shorter borrow. In edition 2021 that <code>+ '_</code> is required. Edition 2024 captures it automatically.</div></li>
+    <li data-n="18"><div>A <code>move</code> closure inside <code>flat_map</code>: <code>move |a| (f, a)</code> copies <code>f</code> into the inner closure. Without <code>move</code> it would borrow <code>f</code>, a local that's gone once the outer closure returns.</div></li>
+  </ol>
+
+  <div class="prose"><h3>The rule itself</h3><p>A derived attribute declares a <code>DATATYPE</code> (say <code>NUMBER</code>) but gets its value from somewhere else: an expression, another entity's column, or a hand-written view. <code>run</code> follows each one to where the value really comes from and compares the two. Every <code>Origin</code> carries the chain of declarations it passed through, which becomes the finding's evidence.</p></div>
+  <pre class="code" data-src="crates/ifsdep-core/src/datatypes.rs:672-710" data-mark="673:19,677:20,685:21,695:22,696:23,699:24,704:25,708:26"></pre>
+  <ol class="co">
+    <li data-n="19"><div>The resolver borrows <code>idx</code> and <code>inputs</code> for as long as it lives, which is this function.</div></li>
+    <li data-n="20"><div>A reverse call graph, callee to its incoming edges, with <code>&amp;str</code> keys and <code>&amp;Edge</code> values borrowed from the index.</div></li>
+    <li data-n="21"><div>Sorting the LU names first, so findings come out in the same order on every run (HashMap key order is random).</div></li>
+    <li data-n="22"><div>Two let-else statements in a row: "has a known declared kind" and "its origin can be followed". When either fails, the attribute is skipped. The module doc puts it this way: "nothing is reported from a guess".</div></li>
+    <li data-n="23"><div><code>r.derived(…)</code> is the recursive search (below).</div></li>
+    <li data-n="24"><div><code>matches!</code> with a tuple pattern <em>and</em> a guard: <code>(Some(d), Some(o)) if d &lt; o</code>, meaning both lengths are known and the declared one is shorter.</div></li>
+    <li data-n="25"><div><code>Target</code> (line 713) stores <code>attr: &amp;'a Attribute</code>, a borrow that lives in a <code>Vec</code> only while <code>run</code> runs.</div></li>
+    <li data-n="26"><div><code>&amp;mut out</code> where <code>places</code> wants <code>&amp;mut [Finding]</code>: <code>&amp;mut Vec</code> coerces to a mutable slice. <code>places</code> can change existing findings but can't add or remove any, and the signature says so.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/datatypes.rs:374-422" data-mark="375:27,381:28,387:29,400:30,402:31,405:32,416:33,419:34"></pre>
+  <ol class="co">
+    <li data-n="27"><div>The first of the three ways a derived attribute gets its value: <code>DB_SQL_IMPLEMENTATION</code>. <code>self.expr</code> evaluates the expression's type, which may call <code>function</code>, then <code>returned</code>, then <code>column</code>, recursively through the other methods.</div></li>
+    <li data-n="28"><div><code>self.lus.get(…).into_iter().flatten()</code>, again "the items, or nothing".</div></li>
+    <li data-n="29"><div><code>?</code> inside nested <code>for</code> loops returns from the whole <em>method</em> with <code>None</code>. That's intended: an association that names a column the target entity doesn't have can't be followed.</div></li>
+    <li data-n="30"><div><code>.map(Vec::as_slice).unwrap_or(&amp;[])</code>: an empty slice literal as the fallback. <code>&amp;[]</code> is a constant, so it lives for <code>'static</code> and has no temporary-lifetime problem (unlike <code>&amp;HashSet::new()</code> in <a class="ref" href="#s-objects"></a>).</div></li>
+    <li data-n="31"><div>Destructuring a three-part tuple that comes back from <code>find_map</code>, with <code>?</code> if nothing was found.</div></li>
+    <li data-n="32"><div><code>filter(…).chain(defs.iter())</code>: try the LU's own view first, then every view. Iterators are lazy, so the second pass only runs if the first finds nothing.</div></li>
+    <li data-n="33"><div><code>*self.depth.borrow()</code>: <code>borrow()</code> returns a <code>Ref&lt;usize&gt;</code>, and <code>*</code> reads the number. The guard is dropped at the end of the <code>if</code> condition.</div></li>
+    <li data-n="34"><div><code>*self.depth.borrow_mut() += 1;</code> increments through a short-lived <code>RefMut</code>. The recursive <code>expr_inner</code> call on the next line can borrow again because this guard is already gone.</div></li>
+  </ol>
+</section>
+
+<!-- ============================================================ upgrade -->
+<section class="stop" id="s-upgrade" data-title="Upgrade comparison: caches and a line diff" data-group="Rules" data-c="clos coll iter pat own">
+  <div class="stop-head"><span class="num"></span><h2>Upgrade comparison: caches and a line diff</h2></div>
+  <div class="files">crates/ifsdep-core/src/upgrade.rs · runs only with --prev-core</div>
+  <div class="prose"><p>Given the previous Core, the upgrade check looks at every Cust override, finds the Core declaration it layers over, reads the same declaration from the old Core, and diffs the two. The severity depends on what changed: the signature (your override no longer matches) or just the body (your <code>@Overtake</code> copy is missing IFS's fix). The diff goes into the finding and the UI renders it.</p></div>
+  <pre class="code" data-src="crates/ifsdep-core/src/upgrade.rs:27-63" data-mark="28:1,29:2,33:3,36:4,45:5,46:6,47:7"></pre>
+  <ol class="co">
+    <li data-n="1"><div>A cache keyed by relative path. <code>Option&lt;String&gt;</code> also remembers misses, so a file missing from the old Core is looked up on disk only once.</div></li>
+    <li data-n="2"><div><code>let mut read_prev = |rel: &amp;str| -&gt; Option&lt;String&gt; { … }</code> is an <code>FnMut</code> closure that captures <code>cache</code> mutably and <code>prev</code> by reference.</div></li>
+    <li data-n="3"><div><code>.clone()</code> returns an owned copy of the cached text. As in <a class="ref" href="#s-resolve"></a>, the closure can't return a borrow of its own cache. Here the text is cloned instead of wrapped in an <code>Rc</code>. That's simpler, and it costs a copy of each file read.</div></li>
+    <li data-n="4"><div>A second cache for current files, keyed by file index.</div></li>
+    <li data-n="5"><div>Walk the <code>Overrides</code> edges made in stage 5 (<a class="ref" href="#s-overrides"></a>). The rule reuses the graph rather than resolving names again.</div></li>
+    <li data-n="6"><div>let-else with a tuple of two <code>Option</code>s: both ends must be objects.</div></li>
+    <li data-n="7"><div>Only Cust over Core matters here: a Core override of Core is IFS's business.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/upgrade.rs:64-103" data-mark="64:8,65:9,75:10,76:11,95:12,97:13"></pre>
+  <ol class="co">
+    <li data-n="8"><div>Tuple <code>let</code>: two calls, two bindings, one line.</div></li>
+    <li data-n="9"><div>Comments and whitespace alone don't count as a change: both sides are normalized before comparing.</div></li>
+    <li data-n="10"><div>A nested <code>if</code>/<code>else</code> chain where every branch evaluates to a <code>(Severity, &amp;str)</code> tuple. That's the whole severity decision in one expression.</div></li>
+    <li data-n="11"><div><code>ov_sig.as_deref() == Some(now_sig.as_str())</code>: compare an <code>Option&lt;String&gt;</code> with a string without allocating.</div></li>
+    <li data-n="12"><div>Rebinding with <code>mut</code>: <code>let (mut severity, mut what, …) = (severity, what.to_string(), …)</code> shadows the immutable values with mutable ones for the adjustments below.</div></li>
+    <li data-n="13"><div><code>against_copy(&amp;mut diff, &amp;ov_lines)</code>: <code>&amp;mut Vec&lt;DiffLine&gt;</code> coerces to <code>&amp;mut [DiffLine]</code> and <code>&amp;Vec&lt;&amp;str&gt;</code> to <code>&amp;[&amp;str]</code>. The function marks each diff line with whether your copy has it.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/upgrade.rs:569-615" data-mark="571:14,574:15,576:16,577:17,598:18,599:19,603:20"></pre>
+  <ol class="co">
+    <li data-n="14"><div>A guard against quadratic blow-up: the longest-common-subsequence table is <code>n × m</code>, so large declarations are reported without a line diff.</div></li>
+    <li data-n="15"><div>A tiny comparison closure that ignores trailing whitespace.</div></li>
+    <li data-n="16"><div><code>vec![vec![0u32; m + 1]; n + 1]</code> builds a 2-D table. The inner <code>vec!</code> is cloned <code>n + 1</code> times. <code>u32</code> halves the memory compared with <code>usize</code>.</div></li>
+    <li data-n="17"><div><code>(0..n).rev()</code> walks the ranges backwards to fill the table bottom-up.</div></li>
+    <li data-n="18"><div><code>keep: Vec&lt;bool&gt;</code> marks which lines to show: changes plus <code>CONTEXT</code> lines around them.</div></li>
+    <li data-n="19"><div><code>saturating_sub</code> stops at 0 instead of underflowing. <code>(a..b).any(…)</code> checks a window.</div></li>
+    <li data-n="20"><div><code>all.into_iter().enumerate()</code> <em>moves</em> each line into <code>out</code> with no clone, since <code>all</code> isn't needed afterwards.</div></li>
+  </ol>
+</section>
+
+<!-- ============================================================ 20 -->
+<section class="stop" id="s-trace" data-title="Trace: &mut returns, split_at_mut, partial moves" data-group="The Trace view" data-c="borrow own pat life">
+  <div class="stop-head"><span class="num"></span><h2>Trace: <code>&amp;mut</code> returns, <code>split_at_mut</code>, partial moves</h2></div>
+  <div class="files">crates/ifsdep-core/src/trace.rs (the PL/SQL Trace view)</div>
+  <div class="prose"><p>The trace builder keeps a stack of <code>Frame</code>s (IF, CASE, LOOP, blocks) and needs a mutable reference to "where the next step goes", which might be inside the top frame or the one below it.</p></div>
+  <pre class="code" data-src="crates/ifsdep-core/src/trace.rs:95-138" data-mark="96:1,113:2,116:3,118:4,127:5,129:6,130:7,134:8"></pre>
+  <ol class="co">
+    <li data-n="1"><div>A constructor is just an associated function returning <code>Self</code>. <code>new</code> is a naming convention, not a keyword.</div></li>
+    <li data-n="2"><div><code>matches!</code> with an or-pattern, combined with <code>||</code>.</div></li>
+    <li data-n="3"><div><code>fn current(&amp;mut self) -&gt; &amp;mut Vec&lt;TraceStep&gt;</code>: by elision rule 3, the result borrows <code>*self</code> mutably. While it's in use, the frame can't be touched any other way.</div></li>
+    <li data-n="4"><div>Two branches return mutable borrows of <em>different</em> fields: the last arm's steps, or the frame's own. Both are borrows of <code>self</code>, so the types line up.</div></li>
+    <li data-n="5"><div><code>sink</code> takes the frame stack as <code>&amp;mut [Frame]</code> and returns a <code>&amp;mut</code> into it…</div></li>
+    <li data-n="6"><div>…using <code>split_at_mut</code>, which turns one <code>&amp;mut</code> slice into two non-overlapping ones. With indexing alone you can't hold <code>&amp;mut fr[n-1]</code> and <code>&amp;mut fr[..n-1]</code> at once, because the compiler doesn't know they don't overlap. <code>split_at_mut</code> is the safe API that promises it (it uses <code>unsafe</code> inside, which you don't need to).</div></li>
+    <li data-n="7"><div><code>&amp;mut last[0]</code>: <code>last</code> is a one-element slice holding the top frame.</div></li>
+    <li data-n="8"><div>Recursing on the lower half, <code>head</code>, and returning its result straight up. The returned reference may point into either half, and both come from <code>fr</code>, so it matches the elided output lifetime.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/trace.rs:561-576" data-mark="561:9,562:10,564:11,566:12,568:13,571:14,572:15"></pre>
+  <ol class="co">
+    <li data-n="9"><div><code>&amp;mut Vec&lt;Frame&gt;</code> here, because it needs <code>pop()</code>, which a slice doesn't have.</div></li>
+    <li data-n="10"><div><code>pop().unwrap()</code> gives an <em>owned</em> <code>Frame</code>. Now its fields can be moved out.</div></li>
+    <li data-n="11"><div><code>mem::take</code> on a <code>Vec</code> field: grab it and leave an empty one behind.</div></li>
+    <li data-n="12"><div><code>unreachable!()</code> panics with a message if this arm ever runs. It documents a guarantee the type system can't express.</div></li>
+    <li data-n="13"><div><strong>Partial moves:</strong> <code>f.head</code> and <code>f.steps</code> move into the map. After that <code>f</code> is partly moved: you can still use its other fields, but not <code>f</code> as a whole or its <code>&amp;self</code> methods (<code>f.branches()</code> would fail).</div></li>
+    <li data-n="14"><div><code>sink(fr)</code> passes a <code>&amp;mut Vec&lt;Frame&gt;</code> where a <code>&amp;mut [Frame]</code> is expected. Deref coercion plus an implicit <strong>reborrow</strong> make this work, and <code>fr</code> is usable again once <code>out</code> is no longer used.</div></li>
+    <li data-n="15"><div><code>out.extend(f.steps)</code> moves the whole <code>Vec</code> in with no clone. Later lines still use <code>f.arms</code> and <code>f.exception</code>, other fields of the partly moved <code>f</code>.</div></li>
+  </ol>
+
+  <div class="prose"><h3>The main loop</h3><p><code>trace_method</code> tokenizes the method once, then walks the tokens. Each keyword either pushes a frame (IF, CASE, LOOP, BEGIN), adds an arm (ELSIF, ELSE, WHEN) or closes a frame (END). Calls and table use are pushed wherever <code>sink</code> says they belong.</p></div>
+  <pre class="code" data-src="crates/ifsdep-core/src/trace.rs:255-330" data-mark="255:16,265:17,266:18,267:19,270:20,302:21,303:22,308:23,321:24"></pre>
+  <ol class="co">
+    <li data-n="16"><div><code>call_step</code> is a closure that captures <code>line_text</code>, another closure, and builds a <code>TraceStep</code> with <code>..Default::default()</code> for the rest. <code>kind: "call"</code> fits because <code>kind</code> is <code>&amp;'static str</code>.</div></li>
+    <li data-n="17"><div><code>'scan: while …</code> is a <strong>loop label</strong>. The leading apostrophe looks like a lifetime, but it's a name for the loop. Line 465 uses <code>break 'scan;</code> to leave this outer loop from inside nested code.</div></li>
+    <li data-n="18"><div><code>let t = &amp;toks[i];</code> borrows one token. <code>toks</code> isn't changed during the loop, so that borrow can live as long as needed.</div></li>
+    <li data-n="19"><div><code>prev</code> is a <code>&amp;str</code> borrowed from the previous token's <code>String</code>. <code>if</code> as an expression with a <code>""</code> literal in the other branch works because <code>&amp;'static str</code> converts to the shorter borrow.</div></li>
+    <li data-n="20"><div><code>std::mem::replace(&amp;mut stmt_start, false)</code> reads the old value and sets a new one in one step. It's <code>take</code> with your own replacement.</div></li>
+    <li data-n="21"><div><code>pending.pop().unwrap()</code> destructured into four parts. The <code>is_some_and</code> check in the <code>while</code> condition guarantees there's an item.</div></li>
+    <li data-n="22"><div><code>sink(&amp;mut fr).push(…)</code>: the <code>&amp;mut Vec&lt;TraceStep&gt;</code> from <code>sink</code> is used once, and its borrow of <code>fr</code> ends with the statement.</div></li>
+    <li data-n="23"><div><code>while let Some((p, m, l, _)) = pending.pop()</code> drains a stack. A call runs after the calls in its arguments, so inner calls are recorded first.</div></li>
+    <li data-n="24"><div><code>Vec::pop_if</code> (Rust 1.86) pops the last element only if the closure accepts it. The popped <code>Frame</code> is owned, and its fields move straight into the map.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/trace.rs:380-400" data-mark="381:25,384:26,390:27,392:28,393:29"></pre>
+  <ol class="co">
+    <li data-n="25"><div><code>let top = fr.len() - 1;</code> is an <em>index</em>, not <code>let top = fr.last_mut()</code>. With an index, every arm below can borrow <code>fr[top]</code> briefly, or push a new frame, without one long-lived <code>&amp;mut</code> getting in the way.</div></li>
+    <li data-n="26"><div>An <code>IF</code> opens a frame that starts out reading its condition.</div></li>
+    <li data-n="27"><div><code>fr[top].cond.take().unwrap()</code>: the match guard (<code>if fr[top].cond.is_some()</code>) guarantees this <code>unwrap</code> can't fail.</div></li>
+    <li data-n="28"><div><code>mem::take</code> on the condition's steps: what the condition calls belongs to the arm it opens.</div></li>
+    <li data-n="29"><div>A new <code>TraceArm</code> is pushed with every field named. Unlike <code>TraceStep</code>, there's no <code>..Default::default()</code> here.</div></li>
+  </ol>
+</section>
+
+<!-- ============================================================ 17 -->
+<section class="stop" id="s-stamp" data-title="Stamps: HashMaps of borrowed keys" data-group="Saving and output" data-c="coll borrow iter opt test">
+  <div class="stop-head"><span class="num"></span><h2>Stamps: HashMaps of borrowed keys</h2></div>
+  <div class="files">crates/ifsdep-core/src/stamp.rs</div>
+  <div class="prose"><p>Small and tidy. It records each file's size and modified time so the app can tell what changed since the saved index (commit ee360e8).</p></div>
+  <pre class="code" data-src="crates/ifsdep-core/src/stamp.rs:44-54" data-mark="47:1,49:2,51:3"></pre>
+  <ol class="co">
+    <li data-n="1"><div><code>filter_map</code> with a closure that returns <code>Option</code>: lines that don't parse are skipped without any special handling.</div></li>
+    <li data-n="2"><div><code>?</code> inside the closure: <code>p.next()?</code> (missing field) and <code>.parse().ok()?</code> (turn the <code>Result</code> into an <code>Option</code>, then bail out on failure). <code>parse()</code> infers <code>u64</code> from the struct field it ends up in.</div></li>
+    <li data-n="3"><div>Field init shorthand: <code>size, modified</code> means <code>size: size, modified: modified</code>.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/stamp.rs:71-84" data-mark="72:4,75:5,77:6,81:7,82:8"></pre>
+  <ol class="co">
+    <li data-n="4"><div><code>HashMap&lt;&amp;str, &amp;Stamp&gt;</code>: both key and value borrow from <code>saved</code>. Building it copies only pointers. The map must not outlive <code>saved</code>, and since it's a local, it doesn't.</div></li>
+    <li data-n="5"><div><code>before.get(s.path.as_str())</code>: with <code>&amp;str</code> keys you look up with a <code>&amp;str</code>. <code>get</code> is generic over the <code>Borrow</code> trait, which is what lets a <code>HashMap&lt;String, _&gt;</code> also accept <code>&amp;str</code>.</div></li>
+    <li data-n="6"><div>A match arm with a guard. When the guard is false, matching continues to <code>Some(_) =&gt; {}</code>.</div></li>
+    <li data-n="7"><div><code>HashMap&lt;&amp;str, ()&gt;</code> works as a set. <code>HashSet&lt;&amp;str&gt;</code> would say it more directly, and costs the same.</div></li>
+    <li data-n="8"><div>The iterator pipeline <code>filter → map → collect</code>. <code>collect()</code> infers <code>Vec&lt;String&gt;</code> from the field it's assigned to.</div></li>
+  </ol>
+</section>
+
+<!-- ============================================================ 18 -->
+<section class="stop" id="s-json" data-title="A hand-rolled serde: traits, generics, macro_rules!" data-group="Saving and output" data-c="trait mac str test">
+  <div class="stop-head"><span class="num"></span><h2>A hand-rolled serde: traits, generics, <code>macro_rules!</code></h2></div>
+  <div class="files">crates/ifsdep-core/src/json.rs</div>
+  <div class="prose"><p>This is what <code>#[derive(Serialize)]</code> does for you, written by hand in 180 lines. It's the best file in the repo for learning traits.</p></div>
+  <pre class="code" data-src="crates/ifsdep-core/src/json.rs:7-15" data-mark="7:1,11:2"></pre>
+  <pre class="code" data-src="crates/ifsdep-core/src/json.rs:35-44" data-mark="35:3"></pre>
+  <ol class="co">
+    <li data-n="1"><div>A one-method trait. Writing into a <code>&amp;mut String</code> (instead of returning a new <code>String</code>) lets the whole tree share one buffer, with no allocation per value.</div></li>
+    <li data-n="2"><div><code>T: ToJson + ?Sized</code>. Generic parameters are <code>Sized</code> by default, meaning the size is known at compile time. <code>?Sized</code> relaxes that so <code>T</code> can be <code>str</code>, whose size isn't fixed. That's fine because <code>v</code> is behind a reference. This is <strong>static dispatch</strong>: the compiler makes a copy of <code>to_string</code> for each <code>T</code> it's called with (monomorphization). Compare the <code>dyn</code> callback in <a class="ref" href="#s-options"></a>.</div></li>
+    <li data-n="3"><div>Implementing for <code>str</code> covers <code>&amp;str</code> values too. There's a second impl for <code>String</code> because <code>Option&lt;String&gt;</code> fields need <code>String: ToJson</code> exactly.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/json.rs:45-77" data-mark="46:4,52:5,58:6,66:7"></pre>
+  <ol class="co">
+    <li data-n="4"><div><code>macro_rules!</code> with a repetition: <code>$($t:ty),*</code> matches a comma-separated list of types, and <code>$( impl … )*</code> stamps out one impl per type.</div></li>
+    <li data-n="5"><div>One invocation, four impls: <code>usize</code>, <code>u32</code>, <code>u128</code>, <code>i64</code>.</div></li>
+    <li data-n="6"><div>A <strong>generic impl</strong> (often called a blanket impl): "<code>Option&lt;T&gt;</code> is <code>ToJson</code> whenever <code>T</code> is". The trait system builds serializers for nested types like <code>Option&lt;Vec&lt;String&gt;&gt;</code> by combining the impls.</div></li>
+    <li data-n="7"><div>The same for <code>Vec&lt;T&gt;</code>. <code>v.write_json(out)</code> calls whatever impl matches <code>T</code>, with no runtime type checks.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/json.rs:93-124" data-mark="94:8,96:9,103:10,105:11,116:12"></pre>
+  <pre class="code" data-src="crates/ifsdep-core/src/json.rs:147-150" data-mark="149:13"></pre>
+  <ol class="co">
+    <li data-n="8"><div>A macro pattern with <strong>fragment specifiers</strong>: <code>$t:ty</code> (a type), <code>$field:ident</code> (an identifier), and <code>$(,)?</code> allows a trailing comma.</div></li>
+    <li data-n="9"><div><code>#[allow(unused_assignments)]</code>: after the last field, <code>first = false</code> is never read, and the lint would complain in every expansion.</div></li>
+    <li data-n="10"><div><code>stringify!($field)</code> turns the identifier into a string literal at compile time. That's how JSON keys match Rust field names, and why <code>ui/src/types.ts</code> uses <code>rel_path</code> rather than <code>relPath</code>.</div></li>
+    <li data-n="11"><div><code>self.$field.write_json(out)</code> calls the right impl for each field's type. A field whose type doesn't implement <code>ToJson</code> fails to compile right here.</div></li>
+    <li data-n="12"><div>The enum macro generates an <code>impl</code> block on the target type itself, adding <code>as_str() -&gt; &amp;'static str</code>, because the returned strings are literals.</div></li>
+    <li data-n="13"><div>One line per type serializes every model struct. The field list is written out by hand, so a new field that isn't added here silently doesn't reach the UI. A derive macro would avoid that, at the cost of a dependency.</div></li>
+  </ol>
+  <div class="box try">
+    <h3>see what a macro expands to</h3>
+    <p>Rewrite one line of the <code>Location</code> impl by hand, or install <code>cargo-expand</code> and run <code>cargo expand json</code> in <code>crates/ifsdep-core</code> to see the generated code.</p>
+  </div>
+</section>
+
+<!-- ============================================================ 21 -->
+<section class="stop" id="s-tauri" data-title="The Tauri shell: threads, statics, move closures" data-group="The two ways in" data-c="conc clos dyn life opt mod">
+  <div class="stop-head"><span class="num"></span><h2>The Tauri shell: threads, statics, <code>move</code> closures</h2></div>
+  <div class="files">src-tauri/src/main.rs · src-tauri/src/lib.rs</div>
+  <pre class="code" data-src="src-tauri/src/main.rs:1-6" data-mark="2:1,5:2"></pre>
+  <ol class="co">
+    <li data-n="1"><div><code>#![…]</code> with <code>!</code> is an <em>inner</em> attribute that applies to the whole crate. <code>cfg_attr(cond, attr)</code> applies the attribute only when <code>cond</code> is true: in release builds the app gets the Windows GUI subsystem (no console window).</div></li>
+    <li data-n="2"><div><code>main</code> delegates to the library crate (<code>ifs_depmap_lib</code>), so the same code can also serve mobile entry points (<code>#[cfg_attr(mobile, tauri::mobile_entry_point)]</code> in <code>lib.rs</code>).</div></li>
+  </ol>
+  <pre class="code" data-src="src-tauri/src/lib.rs:38-83" data-mark="39:3,43:4,47:5,52:6,57:7,58:8,64:9,65:10,67:11,74:12,76:13,81:14"></pre>
+  <ol class="co">
+    <li data-n="3"><div>A <code>static</code> that can change with no <code>unsafe</code> and no <code>Mutex</code>: <code>AtomicBool::new</code> is a <code>const fn</code>, so it can initialize a static, and atomics change through <code>&amp;self</code>.</div></li>
+    <li data-n="4"><div>The UI thread sets the flag, and the worker thread checks it between files (<a class="ref" href="#s-options"></a>). <code>Relaxed</code> ordering is enough for a single flag.</div></li>
+    <li data-n="5"><div>An <code>async</code> command returning <code>Result&lt;String, String&gt;</code>. Tauri sends <code>Ok</code> to JavaScript as the resolved value and <code>Err</code> as a rejection, which is why errors are plain strings.</div></li>
+    <li data-n="6"><div><code>spawn_blocking(move || …)</code> runs CPU-heavy indexing on a thread pool built for blocking work. The closure must be <code>'static + Send</code>: it can't borrow anything from this stack frame, because the frame may be gone before the thread finishes. <code>move</code> transfers ownership of <code>core</code>, <code>cust</code>, <code>prev_core</code> and <code>app</code> into the closure.</div></li>
+    <li data-n="7"><div>A <code>move</code> closure inside a <code>move</code> closure: <code>progress</code> takes ownership of <code>emitter</code> (a clone of <code>app</code>, since <code>app</code> is still needed below).</div></li>
+    <li data-n="8"><div><code>let _ = …</code> discards a <code>Result</code> on purpose. A lost progress event doesn't matter, and the explicit <code>_</code> quiets the <code>#[must_use]</code> warning.</div></li>
+    <li data-n="9"><div><code>Some(&amp;CANCEL)</code> is a <code>&amp;'static AtomicBool</code>, but the field wants <code>&amp;'a AtomicBool</code> where <code>'a</code> is the life of the local <code>PathBuf</code>s. A longer lifetime converts to a shorter one automatically (<strong>subtyping/variance</strong>: <code>'static</code> outlives every <code>'a</code>).</div></li>
+    <li data-n="10"><div><code>Some(&amp;progress)</code>: a reference to a concrete closure is converted to <code>&amp;(dyn Fn(&amp;str, usize, usize) + Sync)</code> (an <strong>unsizing coercion</strong>). It compiles only if the closure really is <code>Sync</code>, which means everything it captures must be safe to share between threads.</div></li>
+    <li data-n="11"><div><code>.map_err(|_| "cancelled".to_string())?</code> turns the <code>Cancelled</code> unit error into the command's <code>String</code> error and returns early.</div></li>
+    <li data-n="12"><div><code>[a, b, c].map(…)</code>: <code>array::map</code> builds a new <code>[String; 3]</code> with no <code>Vec</code> allocation.</div></li>
+    <li data-n="13"><div><code>if let Err(e) = …</code> handles only the failure. Failing to save is logged, and the index is still returned.</div></li>
+    <li data-n="14"><div><code>spawn_blocking(…).await</code> yields <code>Result&lt;Result&lt;String, String&gt;, JoinError&gt;</code>. <code>.map_err(|e| e.to_string())?</code> unwraps the outer layer (did the thread panic?), and what's left, the closure's own <code>Result</code>, becomes the function's return value.</div></li>
+  </ol>
+  <pre class="code" data-src="src-tauri/src/lib.rs:186-198" data-mark="190:15,192:16"></pre>
+  <ol class="co">
+    <li data-n="15"><div><code>ok_or("no saved index")?</code> makes an error of type <code>&amp;str</code>, but the closure returns <code>Result&lt;_, String&gt;</code>. <code>?</code> calls <code>From::from</code> on the error, and <code>impl From&lt;&amp;str&gt; for String</code> exists, so it converts. That's what <code>?</code> does with any <code>From</code> impl.</div></li>
+    <li data-n="16"><div>Converting <code>Vec&lt;PathBuf&gt;</code> to <code>Vec&lt;&amp;Path&gt;</code> for a function that wants <code>&amp;[&amp;Path]</code>: <code>.iter().map(PathBuf::as_path).collect::&lt;Vec&lt;_&gt;&gt;()</code>. The <strong>turbofish</strong> <code>::&lt;Vec&lt;_&gt;&gt;</code> tells <code>collect</code> what to build, and <code>_</code> lets the element type be inferred.</div></li>
+  </ol>
+  <pre class="code" data-src="src-tauri/src/lib.rs:238-245" data-mark="242:17,243:18"></pre>
+  <ol class="co">
+    <li data-n="17"><div><code>generate_handler!</code> is a macro that turns each <code>#[tauri::command]</code> function into a handler the webview can <code>invoke</code>. In <code>ui/src/app.ts</code> you'll find matching calls like <code>invoke("index_folders", { core, cust, prevCore })</code>. Tauri maps camelCase JS keys to snake_case Rust parameters.</div></li>
+    <li data-n="18"><div><code>.expect(…)</code> is <code>unwrap</code> with a message. It's reasonable at the very top of a program, where nothing could recover anyway.</div></li>
+  </ol>
+</section>
+
+<!-- ============================================================ 22 -->
+<section class="stop" id="s-cli" data-title="The CLI: argument parsing without a crate" data-group="The two ways in" data-c="opt pat iter own str">
+  <div class="stop-head"><span class="num"></span><h2>The CLI: argument parsing without a crate</h2></div>
+  <div class="files">crates/ifsdep-core/src/bin/ifsdep.rs</div>
+  <pre class="code" data-src="crates/ifsdep-core/src/bin/ifsdep.rs:53-89" data-mark="53:1,59:2,60:3,63:4,69:5,89:6"></pre>
+  <ol class="co">
+    <li data-n="1"><div><code>main</code> can return <code>ExitCode</code> (or <code>Result</code>), which sets the process exit status without calling <code>std::process::exit</code>. That matters because <code>exit</code> skips destructors.</div></li>
+    <li data-n="2"><div><code>args()</code> is an iterator of owned <code>String</code>s, and <code>.skip(1)</code> drops the program name. It has to be <code>let mut</code> because <code>next()</code> takes <code>&amp;mut self</code>.</div></li>
+    <li data-n="3"><div><code>while let Some(a) = args.next()</code> instead of <code>for a in args</code>: a <code>for</code> loop would take over the iterator, and the body needs to call <code>args.next()</code> itself to read each flag's value. <code>a</code> is an owned <code>String</code>, so the borrow from <code>next()</code> ends right away.</div></li>
+    <li data-n="4"><div>let-else with a <em>tuple</em> of <code>Option</code>s: both must be <code>Some</code>. <code>parse::&lt;usize&gt;()</code> uses the turbofish because nothing else determines the type here.</div></li>
+    <li data-n="5"><div><code>args.next().map(PathBuf::from)</code>: <code>Option&lt;String&gt;</code> becomes <code>Option&lt;PathBuf&gt;</code>, with the <code>From</code> impl used as a function.</div></li>
+    <li data-n="6"><div><code>core.as_deref()</code> turns <code>&amp;Option&lt;PathBuf&gt;</code> into <code>Option&lt;&amp;Path&gt;</code>, exactly the borrowed form <code>IndexOptions&lt;'a&gt;</code> wants (<a class="ref" href="#s-options"></a>). The <code>PathBuf</code>s stay owned by <code>main</code> and outlive the call.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/bin/ifsdep.rs:98-130" data-mark="104:7,109:8,115:9,119:10,125:11"></pre>
+  <ol class="co">
+    <li data-n="7"><div><code>f.location.as_ref().map(…)</code>: <code>as_ref()</code> turns <code>&amp;Option&lt;Location&gt;</code> into <code>Option&lt;&amp;Location&gt;</code> so <code>map</code> doesn't try to move out of a borrowed finding.</div></li>
+    <li data-n="8"><div>Format specs: <code>{:&lt;22}</code> left-aligns to 22 columns, and <code>{sev}</code> captures a variable by name.</div></li>
+    <li data-n="9"><div><code>.filter(…).count()</code> counts without collecting.</div></li>
+    <li data-n="10"><div><code>std::fs::write</code> takes anything <code>AsRef&lt;Path&gt;</code> and anything <code>AsRef&lt;[u8]&gt;</code>, so <code>&amp;path</code> and a <code>String</code> both work directly.</div></li>
+    <li data-n="11"><div><code>--strict</code> turns error findings into exit code 1 for CI. The <code>if</code>/<code>else</code> is the function's tail expression, so it's the return value with no <code>return</code> keyword.</div></li>
+  </ol>
+</section>
+
+<!-- ============================================================ ui -->
+<section class="stop" id="s-ui" data-title="The other side: TypeScript reads the JSON" data-group="The two ways in" data-c="str mod">
+  <div class="stop-head"><span class="num"></span><h2>The other side: TypeScript reads the JSON</h2></div>
+  <div class="files">ui/src/types.ts · ui/src/graphs.ts · ui/src/app.ts · ui/build.mjs · package.json</div>
+  <div class="prose"><p>The Rust side ends at a JSON string. The UI is plain TypeScript with no runtime dependencies, and it draws its own SVG. Nothing checks that the two sides agree except you, so the TypeScript types copy the Rust model field for field. Here's where they meet.</p></div>
+  <pre class="code" data-src="ui/src/types.ts:1-23" data-mark="1:1,3:2,6:3,12:4"></pre>
+  <ol class="co">
+    <li data-n="1"><div>The comment names its source of truth: <code>json.rs</code>.</div></li>
+    <li data-n="2"><div>A string-literal union for each <code>json_enum!</code> (<a class="ref" href="#s-json"></a>). <code>Layer::Core</code> serializes as <code>"Core"</code>, so this type accepts exactly those strings.</div></li>
+    <li data-n="3"><div><code>EdgeKind</code> mirrors the 15 variants and their snake_case spellings from the <code>json_enum!(EdgeKind { … })</code> invocation.</div></li>
+    <li data-n="4"><div><code>SourceFile</code> has the same fields as the Rust struct, because <code>stringify!($field)</code> used the Rust field names as JSON keys. <code>Option&lt;String&gt;</code> became <code>string | null</code>, and <code>usize</code> became <code>number</code>.</div></li>
+  </ol>
+  <pre class="code" data-src="ui/src/types.ts:130-148" data-mark="130:5,146:6"></pre>
+  <ol class="co">
+    <li data-n="5"><div><code>GraphIndex</code> is <code>json_struct!(Index { … })</code> in TypeScript form. <code>stamps</code> is missing on purpose: the Rust macro call leaves it out (<a class="ref" href="#s-json"></a>), so it never reaches the UI.</div></li>
+    <li data-n="6"><div><code>idIndex</code> is the TypeScript twin of <code>model::id_index</code>: <code>"u12"</code> → <code>12</code>, an index into <code>units</code>. The arena pattern crosses the language boundary unchanged.</div></li>
+  </ol>
+  <pre class="code" data-src="ui/src/graphs.ts:101-136" data-mark="101:7,117:8,119:9,130:10,135:11"></pre>
+  <ol class="co">
+    <li data-n="7"><div><code>Model</code> builds lookups once per index, the same move as the Rust side's <code>by_name</code> and <code>unit_map</code> maps.</div></li>
+    <li data-n="8"><div>Objects grouped by unit id, for the Objects view.</div></li>
+    <li data-n="9"><div><code>e.from[0] === "u"</code>: the same first-character test as Rust's <code>Some(b'u')</code> in <a class="ref" href="#s-dyn"></a>. Unit-level and object-level edges are split here.</div></li>
+    <li data-n="10"><div><code>e.layer === "Cust"</code>: an edge written in a Cust file marks both ends as touched by Cust. That's how the "Cust only" filter works.</div></li>
+    <li data-n="11"><div>Findings are indexed by node id, so a red node is a lookup in <code>findingsByNode</code>, which is filled from each finding's <code>nodes</code> list.</div></li>
+  </ol>
+  <pre class="code" data-src="ui/src/app.ts:1-6" data-mark="5:12,6:13"></pre>
+  <pre class="code" data-src="ui/src/app.ts:165-183" data-mark="166:14,176:15,181:16"></pre>
+  <pre class="code" data-src="ui/src/app.ts:383-401" data-mark="391:17,393:18,401:19"></pre>
+  <ol class="co">
+    <li data-n="12"><div>Inside the Tauri window, <code>window.__TAURI__</code> exists. In a plain browser it doesn't…</div></li>
+    <li data-n="13"><div>…so <code>invoke</code> is <code>undefined</code>, and the UI falls back to demo data. One build serves both.</div></li>
+    <li data-n="14"><div>Listening for the <code>index-progress</code> events that the Rust <code>progress</code> closure emits (<a class="ref" href="#s-tauri"></a>). The payload <code>[stage, done, total]</code> is the Rust tuple <code>(stage, done, total)</code> serialized by Tauri.</div></li>
+    <li data-n="15"><div>On launch, ask Rust for the saved index (<code>load_saved</code>, then <code>check_saved</code> with the stamps from <a class="ref" href="#s-stamp"></a>).</div></li>
+    <li data-n="16"><div>The demo page embeds the JSON in a <code>&lt;script&gt;</code> tag. This is why <code>json.rs</code> writes <code>&lt;</code> as <code><</code>: a <code>&lt;/script&gt;</code> inside a message would otherwise end the tag early.</div></li>
+    <li data-n="17"><div><code>invoke("index_folders", { core, cust, prevCore })</code> calls the <code>#[tauri::command] async fn index_folders</code> in Rust. <code>prevCore</code> becomes <code>prev_core</code>.</div></li>
+    <li data-n="18"><div>The <code>Ok(String)</code> from Rust resolves the promise, and <code>JSON.parse</code> rebuilds the index.</div></li>
+    <li data-n="19"><div><code>String(e) === "cancelled"</code> matches the <code>Err("cancelled".to_string())</code> from <code>map_err</code> in Rust. Errors cross the bridge as plain strings.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/json.rs:17-33" data-mark="28:20"></pre>
+  <pre class="code" data-src="package.json:6-12" data-mark="8:21"></pre>
+  <ol class="co">
+    <li data-n="20"><div>The Rust side of point 16.</div></li>
+    <li data-n="21"><div><code>npm run demo</code> chains the two halves: the Rust CLI writes <code>graph.json</code> for the fixtures, then <code>ui/build.mjs --demo</code> embeds it in a standalone HTML page.</div></li>
+  </ol>
+</section>
+
+<!-- ============================================================ 23 -->
+<section class="stop" id="s-tests" data-title="Tests: unit, integration, fixtures" data-group="Proof" data-c="test mod str">
+  <div class="stop-head"><span class="num"></span><h2>Tests: unit, integration, fixtures</h2></div>
+  <div class="files">crates/ifsdep-core/tests/fixtures.rs · src/marble.rs</div>
+  <div class="prose"><p><code>cargo test</code> in <code>crates/ifsdep-core</code> runs 49 tests: 25 unit tests inside <code>src/</code> and 24 integration tests in <code>tests/fixtures.rs</code>. I ran them for this guide and all pass.</p></div>
+  <pre class="code" data-src="crates/ifsdep-core/tests/fixtures.rs:1-13" data-mark="1:1,5:2,9:3,12:4"></pre>
+  <ol class="co">
+    <li data-n="1"><div>Every file in <code>tests/</code> is compiled as its <em>own crate</em> that links the library. It sees only the public API, as an outside user would.</div></li>
+    <li data-n="2"><div>The glob import works because of the <code>pub use model::*</code> in <code>lib.rs</code> (<a class="ref" href="#s-workspace"></a>).</div></li>
+    <li data-n="3"><div><code>env!("CARGO_MANIFEST_DIR")</code> is read <em>at compile time</em>: the crate's folder, so the fixtures are found no matter where <code>cargo test</code> is run from.</div></li>
+    <li data-n="4"><div><code>Some(&amp;core)</code>: <code>&amp;PathBuf</code> coerces to the <code>&amp;Path</code> that <code>IndexOptions</code> wants. <code>..Default::default()</code> leaves <code>cancel</code> and <code>progress</code> as <code>None</code>.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/tests/fixtures.rs:29-34" data-mark="29:5,33:6"></pre>
+  <ol class="co">
+    <li data-n="5"><div>A lifetime on a test helper: the found <code>&amp;Object</code> borrows from <code>idx</code>, not from the name strings.</div></li>
+    <li data-n="6"><div><code>unwrap_or_else(|| panic!(…))</code> rather than <code>expect(&amp;format!(…))</code>: the message is formatted only when the test fails.</div></li>
+  </ol>
+  <pre class="code" data-src="crates/ifsdep-core/src/marble.rs:410-416" data-mark="411:7,414:8"></pre>
+  <ol class="co">
+    <li data-n="7"><div><code>use super::*;</code> brings everything from the parent module into scope, private items included.</div></li>
+    <li data-n="8"><div><code>r#"…"#</code> is a <strong>raw string</strong>: no escape processing, and it may contain <code>"</code>. Ideal for pasting snippets of source code into tests.</div></li>
+  </ol>
+  <div class="box try">
+    <h3>run a slice of the suite</h3>
+    <pre>cd crates/ifsdep-core
+cargo test marble          # every test with "marble" in its path
+cargo test --test fixtures # integration tests only
+cargo test -- --nocapture  # show println! output</pre>
+  </div>
+</section>
+
+<!-- ============================================================ example -->
+<section class="stop" id="s-example" data-title="One finding, end to end" data-group="Proof" data-c="own borrow pat coll test">
+  <div class="stop-head"><span class="num"></span><h2>One finding, end to end</h2></div>
+  <div class="files">fixtures/cust/shpord/model/shpord/ · then every stage</div>
+  <div class="prose"><p>The fixtures plant an include cycle that exists only once the Cust layer is applied. Here it is from the two files to the red nodes on screen. Every value below is real: I ran the CLI on the fixtures and read the JSON it wrote.</p>
+  <h3>1. The files</h3></div>
+  <pre class="code" data-src="fixtures/cust/shpord/model/shpord/ShopOrderCommon-Cust.fragment:1-7" data-mark="1:1,3:2,6:3"></pre>
+  <pre class="code" data-src="fixtures/cust/shpord/model/shpord/TiShopOrderExtras-Cust.fragment:1-6" data-mark="6:4"></pre>
+  <ol class="co">
+    <li data-n="1"><div>The header uses the <em>base</em> name, <code>ShopOrderCommon</code>, so this file joins the Core <code>ShopOrderCommon.fragment</code> as an overlay.</div></li>
+    <li data-n="2"><div>It declares <code>layer Cust;</code>. That's only checked (LAYER_MISMATCH), never trusted: the layer comes from the folder.</div></li>
+    <li data-n="3"><div>The overlay includes a pure Cust fragment…</div></li>
+    <li data-n="4"><div>…which includes ShopOrderCommon back. Neither include exists in Core.</div></li>
+  </ol>
+  <div class="prose">
+    <h3>2. Scan and parse (stage 1)</h3>
+    <p><code>scan_root</code> (<a class="ref" href="#s-scan"></a>) finds both under <code>fixtures/cust</code>, so <code>root = Layer::Cust</code>, and <code>FileKind::from_path</code> says <code>Fragment</code>. <code>marble::parse</code> (<a class="ref" href="#s-marble"></a>) returns a <code>ParsedMarble</code> with <code>name: Some("ShopOrderCommon")</code> and one <code>Include { name: "TiShopOrderExtras", line: 6, dynamic: None }</code>, from this arm:</p>
+  </div>
+  <pre class="code" data-src="crates/ifsdep-core/src/marble.rs:156-166" data-mark="157:5,159:6"></pre>
+  <ol class="co">
+    <li data-n="5"><div><code>is_some_and</code>: the second word must be <code>fragment</code>.</div></li>
+    <li data-n="6"><div><code>n.clone()</code>: the token is borrowed from <code>words</code>, and the <code>Include</code> needs to own its name.</div></li>
+  </ol>
+  <div class="prose">
+    <h3>3. Group (stage 2)</h3>
+    <p>The key <code>(UnitKind::Fragment, "SHOPORDERCOMMON")</code> already exists from the Core file, so the Cust file joins unit <code>u12</code> as an <code>Overlay</code>, and <code>u12.has_overlay</code> becomes true. <code>TiShopOrderExtras</code> is new, so it becomes <code>u17</code> with <code>origin: Cust</code> (<a class="ref" href="#s-group"></a>). In the JSON:</p>
+    <pre class="json">u12 {"kind":"fragment","name":"ShopOrderCommon","origin":"Core","files":[19,35],"has_overlay":true}
+u17 {"kind":"fragment","name":"TiShopOrderExtras","origin":"Cust","files":[37],"has_overlay":false}</pre>
+    <h3>4. Edges (stage 4)</h3>
+    <p>For file 35 (the overlay), <code>lookup(UnitKind::Fragment, "TISHOPORDEREXTRAS")</code> succeeds. The file is in Cust, so pure Cust units are visible to it (<a class="ref" href="#s-edges"></a>, point 4). Two <code>Include</code> edges come out, both written in Cust files:</p>
+    <pre class="json">edge 17 {"from":"u12","to":"u17","kind":"include","file":35,"line":6,"layer":"Cust"}
+edge 20 {"from":"u17","to":"u12","kind":"include","file":37,"line":6,"layer":"Cust"}</pre>
+    <h3>5. The CYCLE rule (stage 7)</h3>
+    <p><code>cycles()</code> (<a class="ref" href="#s-graph"></a>) builds the Core-only graph, which has no edge 17 or 20, so <code>u12</code> and <code>u17</code> are in no Core cycle. On the full graph, Tarjan returns the SCC <code>{u12, u17}</code>. Because it isn't Core-only, the title is "appears with Cust layer", and the suggested break is the first Cust hop, edge 17 at <code>ShopOrderCommon-Cust.fragment:6</code>.</p>
+    <h3>6. Finishing (stage 7)</h3>
+    <p>The location is in a Cust file, so <code>involves_cust = true</code>. The findings are sorted (errors first, then by rule and message), and this one gets the id <code>f2</code> (<a class="ref" href="#s-dyn"></a>).</p>
+    <h3>7. JSON</h3>
+    <p><code>json_struct!(Finding { … })</code> (<a class="ref" href="#s-json"></a>) writes it like this (the suggestion text is shortened here):</p>
+    <pre class="json">{"id":"f2","severity":"error","rule":"CYCLE",
+ "title":"Circular include (appears with Cust layer)",
+ "message":"ShopOrderCommon → TiShopOrderExtras → ShopOrderCommon",
+ "nodes":["u12","u17"],"edges":[17,20],
+ "location":{"file":35,"line":6},
+ "suggestion":{"summary":"Break the loop at ShopOrderCommon → TiShopOrderExtras: …",
+   "snippet":"-- shpord/model/shpord/ShopOrderCommon-Cust.fragment:6\n- include fragment TiShopOrderExtras;\n…",
+   "target":"shpord/model/shpord/ShopOrderCommon-Cust.fragment"},
+ "evidence":[],"involves_cust":true,"diff":null,"upgrade":false}</pre>
+    <h3>8. On screen</h3>
+    <p>The UI's <code>Model.indexFindings</code> (<a class="ref" href="#s-ui"></a>) files <code>f2</code> under <code>u12</code> and <code>u17</code>, so both nodes take the error color. <code>edges: [17, 20]</code> highlights the loop, and <code>location</code> becomes an <em>Open</em> button that calls Rust's <code>open_in_editor</code> with the absolute path of file 35 and line 6.</p>
+    <h3>9. The test that pins it down</h3>
+  </div>
+  <pre class="code" data-src="crates/ifsdep-core/tests/fixtures.rs:71-92" data-mark="74:7,81:8,87:9,89:10"></pre>
+  <ol class="co">
+    <li data-n="7"><div><code>findings(&amp;idx, "CYCLE")</code> returns <code>Vec&lt;&amp;Finding&gt;</code>, borrowed from <code>idx</code> (<a class="ref" href="#s-analyze"></a>).</div></li>
+    <li data-n="8"><div>Searching by the involved unit names, compared as a <code>Vec&lt;String&gt;</code> against an array of <code>&amp;str</code>. That compiles because <code>String: PartialEq&lt;&amp;str&gt;</code>.</div></li>
+    <li data-n="9"><div><code>location.as_ref().unwrap()</code>: borrow inside the <code>Option</code> rather than moving out of a shared <code>&amp;Finding</code>.</div></li>
+    <li data-n="10"><div>The suggested fix must remove exactly the Cust include. This is the behavior that matters to you as a user, written as an assertion.</div></li>
+  </ol>
+  <div class="box try">
+    <h3>follow a different finding yourself</h3>
+    <pre>cargo run --bin ifsdep -- --core fixtures/core --cust fixtures/cust --json target/graph.json</pre>
+    <p>Pick another finding, say <code>MISSING_OVERRIDE function GetDefaultSite</code> at <code>ShopOrderHandling-Cust.projection:17</code>, and walk it back through the stops: which parser produced the declaration, which stage grouped it with the Core projection, and which loop in <code>duplicates()</code> (<a class="ref" href="#s-rules"></a>) reported it.</p>
+  </div>
+</section>
+
+<!-- ============================================================ cheat sheet -->
+<section class="stop" id="s-patterns" data-title="Patterns to reuse" data-group="Wrap-up" data-c="own borrow life clos smart coll">
+  <div class="stop-head"><span class="num"></span><h2>Patterns to reuse</h2></div>
+  <div class="prose"><p>The borrow-checker techniques this codebase uses again and again, collected in one place. When the compiler rejects something in your own code, it's usually one of these.</p></div>
+  <div class="cheatwrap">
+  <table class="cheat">
+    <thead><tr><th>Problem</th><th>Technique</th><th>Where</th></tr></thead>
+    <tbody>
+      <tr><td>Structs that refer to each other</td><td>Arena: one owner (<code>Index</code>) with <code>Vec</code>s, links stored as <code>usize</code> or string ids</td><td><a class="ref" data-short href="#s-model"></a></td></tr>
+      <tr><td>Read one thing while building another</td><td>Keep the data being built in a local variable and move it into the struct at the end</td><td><a class="ref" data-short href="#s-parse"></a> <a class="ref" data-short href="#s-edges"></a> <a class="ref" data-short href="#s-dyn"></a></td></tr>
+      <tr><td>A closure blocks later changes</td><td>Pass the borrow as a closure parameter instead of capturing it</td><td><a class="ref" data-short href="#s-group"></a> <a class="ref" data-short href="#s-objects"></a> <a class="ref" data-short href="#s-resolve"></a></td></tr>
+      <tr><td>Push to a <code>Vec</code> you're iterating over</td><td>Collect what you need into an owned <code>Vec</code> first</td><td><a class="ref" data-short href="#s-edges"></a></td></tr>
+      <tr><td>A borrow is still alive at a write</td><td>Clone the small thing, or reorder so the last use comes first (NLL)</td><td><a class="ref" data-short href="#s-marble"></a> <a class="ref" data-short href="#s-overrides"></a></td></tr>
+      <tr><td>A memoized result is needed by several callers</td><td>Store <code>Rc&lt;T&gt;</code> in the cache and hand out clones</td><td><a class="ref" data-short href="#s-resolve"></a></td></tr>
+      <tr><td>A cache behind <code>&amp;self</code> in recursive code</td><td><code>RefCell</code>, keeping each <code>borrow_mut()</code> short</td><td><a class="ref" data-short href="#s-resolver"></a></td></tr>
+      <tr><td>Two <code>&amp;mut</code>s into one slice</td><td><code>split_at_mut</code></td><td><a class="ref" data-short href="#s-trace"></a></td></tr>
+      <tr><td>Move out from behind <code>&amp;mut</code></td><td><code>Option::take</code>, <code>mem::take</code></td><td><a class="ref" data-short href="#s-marble"></a> <a class="ref" data-short href="#s-trace"></a></td></tr>
+      <tr><td>Different closures in <code>if</code> branches</td><td><code>Box&lt;dyn Fn&gt;</code>, then <code>&amp;*boxed</code></td><td><a class="ref" data-short href="#s-dyn"></a></td></tr>
+      <tr><td>A <code>&amp;</code> to a fallback value lives too briefly</td><td>Bind the fallback to a variable in an outer scope</td><td><a class="ref" data-short href="#s-objects"></a></td></tr>
+      <tr><td>Output varies from run to run</td><td><code>BTreeMap</code>/<code>BTreeSet</code> or an explicit sort before anything is numbered</td><td><a class="ref" data-short href="#s-edges"></a> <a class="ref" data-short href="#s-scan"></a></td></tr>
+      <tr><td>Work on another thread</td><td><code>move</code> closure, <code>'static</code> data, atomics for flags</td><td><a class="ref" data-short href="#s-tauri"></a></td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="box">
+    <h3>Where to read next in the repo</h3>
+    <p><code>sqlscope.rs</code> (SQL query blocks as a state machine with a stack), the rest of <code>datatypes.rs</code> (recursive resolution through <code>guarded</code>), and <code>upgrade.rs</code> (a line diff with a cell limit, <code>MAX_DIFF_CELLS</code>). They use the same techniques as above, in longer functions.</p>
+  </div>
+</section>
+</main>
+</div>
+
+<script>
+(() => {
+  const REPO = "C:/devstudio/ifs-depmap/";
+  const CONCEPTS = {
+    own: "Ownership & moves", borrow: "Borrowing", life: "Lifetimes", opt: "Option, Result, ?",
+    pat: "Patterns & matching", clos: "Closures", dyn: "Trait objects", trait: "Traits & generics",
+    mac: "Macros", iter: "Iterators", coll: "Collections", smart: "Rc & RefCell",
+    conc: "Threads & atomics", str: "Strings & UTF-8", test: "Testing", mod: "Crates & modules",
+  };
+  const KW = new Set("as async await break const continue crate dyn else enum extern false fn for if impl in let loop match mod move mut pub ref return self Self static struct super trait true type unsafe use where while".split(" "));
+  const esc = (s) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+  const span = (cls, s) => `<span class="t-${cls}">${esc(s)}</span>`;
+
+  function hlRust(line, st) {
+    let out = "", i = 0;
+    if (st.raw != null) {
+      const end = '"' + "#".repeat(st.raw), k = line.indexOf(end);
+      if (k < 0) return span("str", line);
+      out += span("str", line.slice(0, k + end.length)); i = k + end.length; st.raw = null;
+    }
+    while (i < line.length) {
+      const rest = line.slice(i); let m;
+      if (rest.startsWith("//")) { out += span(/^\/\/[\/!]/.test(rest) ? "doc" : "com", rest); break; }
+      if ((m = rest.match(/^r(#*)"/))) {
+        const end = '"' + m[1], k = rest.indexOf(end, m[0].length);
+        if (k < 0) { out += span("str", rest); st.raw = m[1].length; break; }
+        out += span("str", rest.slice(0, k + end.length)); i += k + end.length; continue;
+      }
+      if ((m = rest.match(/^b?"(?:\\.|[^"\\])*"/)) || (m = rest.match(/^b?'(?:\\.|[^'\\])'/))) { out += span("str", m[0]); i += m[0].length; continue; }
+      if ((m = rest.match(/^'[A-Za-z_]\w*/))) { out += span("lt", m[0]); i += m[0].length; continue; }
+      if ((m = rest.match(/^#!?\[[^\]]*\]?/))) { out += span("attr", m[0]); i += m[0].length; continue; }
+      if ((m = rest.match(/^[A-Za-z_]\w*!/))) { out += span("mac", m[0]); i += m[0].length; continue; }
+      if ((m = rest.match(/^[A-Za-z_]\w*/))) {
+        const w = m[0], after = rest[w.length];
+        out += KW.has(w) ? span("kw", w) : /^[A-Z]/.test(w) && /[a-z]/.test(w) ? span("ty", w) : after === "(" ? span("fn", w) : esc(w);
+        i += w.length; continue;
+      }
+      if ((m = rest.match(/^\d[\d_]*/))) { out += span("num", m[0]); i += m[0].length; continue; }
+      out += esc(rest[0]); i++;
+    }
+    return out;
+  }
+  function hlToml(line) {
+    if (/^\s*#/.test(line)) return span("com", line);
+    if (/^\s*\[/.test(line)) return span("kw", line);
+    const m = line.match(/^(\s*[\w.-]+)(\s*=\s*)(.*)$/);
+    return m ? span("ty", m[1]) + esc(m[2]) + span("str", m[3]) : esc(line);
+  }
+
+  // Render excerpts.
+  document.querySelectorAll("pre.code").forEach((pre) => {
+    const file = pre.dataset.file, start = Number(pre.dataset.start);
+    const marks = new Map((pre.dataset.mark || "").split(",").filter(Boolean).map((p) => { const [l, n] = p.split(":"); return [Number(l), n]; }));
+    const text = pre.textContent.split("\n");
+    const end = start + text.length - 1;
+    const toml = file.endsWith(".toml"), st = { raw: null };
+    const rows = text.map((t, k) => {
+      const ln = start + k, n = marks.get(ln);
+      const badge = n ? `<button class="badge" type="button" data-n="${n}" aria-label="Note ${n}">${n}</button>` : "";
+      return `<tr${n ? ` class="mk" data-n="${n}"` : ""} data-line="${ln}"><td class="ln">${ln}</td><td class="bd">${badge}</td><td class="src">${toml ? hlToml(t) : hlRust(t, st)}</td></tr>`;
+    }).join("");
+    const box = document.createElement("div");
+    box.className = "excerpt";
+    const gh = pre.dataset.gh ? `<a href="${pre.dataset.gh}" target="_blank" rel="noopener">View on GitHub</a>` : "";
+    box.innerHTML = `<div class="bar2"><span>${esc(file)} · lines ${start}–${end}</span><span class="links">${gh}<a href="vscode://file/${REPO}${file}:${start}">Open in VS Code</a></span></div><div class="scroll"><table><tbody>${rows}</tbody></table></div>`;
+    pre.replaceWith(box);
+  });
+
+  // Stop numbers come from the order on the page; cross-references follow them.
+  const stops = [...document.querySelectorAll("section.stop")];
+  stops.forEach((s, i) => { s.querySelector(".num").textContent = s.id === "s-patterns" ? "✓" : String(i + 1).padStart(2, "0"); });
+  document.querySelectorAll("a.ref").forEach((a) => {
+    const t = document.querySelector(a.getAttribute("href"));
+    if (t) a.textContent = (a.hasAttribute("data-short") ? "" : "stop ") + t.querySelector(".num").textContent;
+  });
+
+  // Badges ↔ notes, within one stop.
+  stops.forEach((sec) => {
+    const rowFor = (n) => sec.querySelector(`tr.mk[data-n="${n}"]`);
+    const noteFor = (n) => sec.querySelector(`ol.co > li[data-n="${n}"]`);
+    const flash = (el) => { el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash"); };
+    sec.addEventListener("click", (e) => {
+      const badge = e.target.closest(".badge");
+      if (badge) { const li = noteFor(badge.dataset.n); if (li) { li.scrollIntoView({ block: "center", behavior: "smooth" }); li.classList.add("hot"); setTimeout(() => li.classList.remove("hot"), 1400); } return; }
+      const li = e.target.closest("ol.co > li");
+      if (li && !e.target.closest("a")) { const row = rowFor(li.dataset.n); if (row) { row.scrollIntoView({ block: "center", behavior: "smooth" }); flash(row); } }
+    });
+    sec.addEventListener("mouseover", (e) => {
+      const li = e.target.closest("ol.co > li");
+      sec.querySelectorAll("tr.flash").forEach((r) => r.classList.remove("flash"));
+      if (li) { const row = rowFor(li.dataset.n); if (row) row.classList.add("flash"); }
+    });
+  });
+
+  // Route list, tags, footers.
+  const store = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
+  const read = new Set(store.get("ifsdep-guide-read") || []);
+  const list = document.getElementById("route-list");
+  let group = "";
+  const links = new Map();
+  stops.forEach((sec, i) => {
+    if (sec.dataset.group !== group) {
+      group = sec.dataset.group;
+      const g = document.createElement("li"); g.className = "grp"; g.textContent = group; list.append(g);
+    }
+    const li = document.createElement("li");
+    const num = sec.querySelector(".num").textContent;
+    li.innerHTML = `<a class="stop" href="#${sec.id}"><span class="n">${num}</span><span>${esc(sec.dataset.title)}</span><span class="done" aria-label="read">✓</span></a>`;
+    list.append(li);
+    links.set(sec.id, li.firstChild);
+
+    const tags = document.createElement("div"); tags.className = "tags";
+    tags.innerHTML = sec.dataset.c.split(" ").map((c) => `<span class="tag">${esc(CONCEPTS[c])}</span>`).join("");
+    sec.querySelector(".stop-head").after(tags);
+
+    const foot = document.createElement("div"); foot.className = "stop-foot";
+    const next = stops[i + 1];
+    foot.innerHTML = `<label class="readmark"><input type="checkbox" id="read-${sec.id}"${read.has(sec.id) ? " checked" : ""}> I've read this stop</label>` +
+      (next ? `<a class="btn primary" href="#${next.id}">Next: ${esc(next.dataset.title)} →</a>` : `<a class="btn" href="#top">Back to the top ↑</a>`);
+    sec.append(foot);
+    foot.querySelector("input").addEventListener("change", (e) => {
+      e.target.checked ? read.add(sec.id) : read.delete(sec.id);
+      store.set("ifsdep-guide-read", [...read]); paintRead();
+    });
+  });
+  const counted = stops.filter((s) => s.id !== "s-patterns");
+  function paintRead() {
+    links.forEach((a, id) => a.classList.toggle("read", read.has(id)));
+    const n = counted.filter((s) => read.has(s.id)).length;
+    document.getElementById("progress-text").textContent = `${n} of ${counted.length} stops read`;
+    document.getElementById("progress-bar").style.width = `${(100 * n) / counted.length}%`;
+  }
+  paintRead();
+
+  // Concept filter.
+  const chips = document.getElementById("chips");
+  const note = document.getElementById("filter-note");
+  let active = null;
+  Object.entries(CONCEPTS).forEach(([key, label]) => {
+    const n = stops.filter((s) => s.dataset.c.split(" ").includes(key)).length;
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "chip"; b.setAttribute("aria-pressed", "false");
+    b.innerHTML = `${esc(label)}<span class="c">${n}</span>`;
+    b.addEventListener("click", () => { active = active === key ? null : key; applyFilter(); });
+    b.dataset.key = key; chips.append(b);
+  });
+  function applyFilter() {
+    chips.querySelectorAll(".chip").forEach((c) => c.setAttribute("aria-pressed", String(c.dataset.key === active)));
+    let shown = 0;
+    stops.forEach((s) => {
+      const on = !active || s.dataset.c.split(" ").includes(active);
+      if (on) shown++;
+      s.classList.toggle("dim", !on); links.get(s.id).classList.toggle("dim", !on);
+    });
+    note.textContent = active ? `${CONCEPTS[active]}: ${shown} stops. The others are dimmed. Click the chip again to clear.` : "";
+    if (active) { const first = stops.find((s) => !s.classList.contains("dim")); if (first) first.scrollIntoView({ behavior: "smooth" }); }
+  }
+
+  // Current stop, and J/K.
+  let current = stops[0];
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach((en) => { if (en.isIntersecting) current = en.target; });
+    links.forEach((a, id) => a.classList.toggle("here", id === current.id));
+  }, { rootMargin: "-20% 0px -70% 0px" });
+  stops.forEach((s) => io.observe(s));
+  document.addEventListener("keydown", (e) => {
+    if (e.target.closest("input, textarea") || e.metaKey || e.ctrlKey || e.altKey) return;
+    const k = e.key.toLowerCase();
+    if (k !== "j" && k !== "k") return;
+    const pool = stops.filter((s) => !s.classList.contains("dim"));
+    const i = pool.indexOf(current);
+    const to = k === "j" ? pool[Math.min(pool.length - 1, i + 1)] : pool[Math.max(0, i - 1)];
+    if (to) { to.scrollIntoView({ behavior: "smooth" }); current = to; }
+  });
+  document.body.id = "top";
+})();
+</script>
+</body>
+</html>
