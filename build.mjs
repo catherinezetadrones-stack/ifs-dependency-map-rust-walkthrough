@@ -36,7 +36,9 @@ const lines = (rel) => {
   return cache.get(rel);
 };
 
-html = html.replace(/<code>([\s\S]*?)<\/code>/g, (_, inner) => `<code>${esc(inner)}</code>`);
+// Prose may also already be written with entities (&amp;, &lt;); don't escape those twice.
+const escProse = (s) => s.replace(/&(?!(?:amp|lt|gt|quot|#\d+);)/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+html = html.replace(/<code>([\s\S]*?)<\/code>/g, (_, inner) => `<code>${escProse(inner)}</code>`);
 html = html.replace("<!--COMMIT-->", `<a href="${GITHUB}/tree/${sha}/${prefix}">${sha.slice(0, 7)}</a>`);
 
 let blocks = 0;
