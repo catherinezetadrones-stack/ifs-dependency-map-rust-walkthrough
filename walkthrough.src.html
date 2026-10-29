@@ -114,6 +114,16 @@ section.stop.dim { opacity: .35; }
 .stop-head.arrived { animation: arrived 1.4s ease-out; border-radius: 8px; }
 @keyframes arrived { 0% { background: var(--accent-soft); } 100% { background: transparent; } }
 .stop-head h2 { font-size: clamp(1.4rem, 2.6vw, 1.85rem); letter-spacing: -.01em; flex: 1 1 300px; }
+/* Stops start closed: the head, files and tags show, and clicking the head opens the rest. */
+section.stop.closed { padding-top: 22px; padding-bottom: 18px; }
+.stop-head { cursor: pointer; }
+.stop-head .fold { flex: 0 0 auto; align-self: center; font: 600 .72rem var(--f-code); letter-spacing: .04em; color: var(--muted); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 3px 9px; cursor: pointer; }
+.stop-head:hover .fold { color: var(--ink); border-color: var(--accent); }
+.foldall { display: flex; gap: 6px; margin-top: 8px; }
+.foldall button { font: 600 .68rem var(--f-code); letter-spacing: .04em; color: var(--muted); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; cursor: pointer; }
+.foldall button:hover { color: var(--ink); border-color: var(--accent); }
+.stop-body[hidden] { display: block; height: 0; overflow: hidden; }
+@media print { section.stop .stop-body[hidden] { height: auto; overflow: visible; content-visibility: visible !important; } .stop-head .fold, .foldall { display: none; } }
 .files { font: .8rem var(--f-code); color: var(--muted); margin-top: 6px; }
 .tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; }
 .tag { font: 500 .7rem var(--f-code); color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; }
@@ -205,7 +215,7 @@ table.cheat th { font: 600 .72rem var(--f-code); letter-spacing: .06em; text-tra
   <button type="button" class="navtoggle" id="navtoggle" aria-controls="route-body" aria-expanded="true">‹ Hide stops</button>
   <details open id="route-body">
     <summary><div class="brand">IFS Dependency Map, read as Rust<small>a walkthrough of the code</small></div></summary>
-    <div class="progress"><span id="progress-text">0 stops read</span><div class="bar"><i id="progress-bar"></i></div></div>
+    <div class="progress"><span id="progress-text">0 stops read</span><div class="bar"><i id="progress-bar"></i></div><div class="foldall"><button type="button" id="open-all">Open all</button><button type="button" id="close-all">Close all</button></div></div>
     <ol id="route-list"></ol>
   </details>
 </nav>
@@ -216,7 +226,7 @@ table.cheat th { font: 600 .72rem var(--f-code); letter-spacing: .06em; text-tra
   <h1>How the indexer works, one Rust idea at a time</h1>
   <p>This walkthrough covers the whole IFS Dependency Map in the order data moves through it: folders become files, files become parsed records, records become units, objects and edges, those become findings, and findings become JSON that the TypeScript UI draws. Nothing in the pipeline is skipped. Every source file in <code>crates/ifsdep-core/src</code> and <code>src-tauri/src</code> has a stop, and the last stop follows one real finding through all of them. Stop 1 is the map: read it first.</p>
   <p>Every code block is copied by line number from <a href="https://github.com/phbronson999/ifs-dependency-map">phbronson999/ifs-dependency-map</a> at commit <!--COMMIT--> when the page is built, so what you see is exactly what's in that version of the code. Numbered badges on the code match the notes under it.</p>
-  <p class="how">Click a badge or a note to jump between them. <kbd>J</kbd> and <kbd>K</kbd> move between stops. Pick a concept below to see only the stops that teach it. <em>View on GitHub</em> opens the same lines at that commit. <em>Open in VS Code</em> works on a machine with the project checked out at <code>C:\devstudio</code>.</p>
+  <p class="how">Stops start closed: click a stop's heading to open or close it, and keep as many open as you like. <em>Next</em> closes the stop you finished and opens the next one. Click a badge or a note to jump between them. <kbd>J</kbd> and <kbd>K</kbd> move between stops. Pick a concept below to see only the stops that teach it. <em>View on GitHub</em> opens the same lines at that commit. <em>Open in VS Code</em> works on a machine with the project checked out at <code>C:\devstudio</code>.</p>
 
   <div class="flow" aria-label="Pipeline">
     <a href="#s-scan"><b>scan.rs</b><span>walk both roots, keep files we understand</span></a>
@@ -1595,13 +1605,50 @@ edge 22 {"from":"u19","to":"u14","kind":"include","file":39,"line":6,"layer":"Cu
       store.set("ifsdep-guide-read", [...read]); paintRead();
     };
     box.addEventListener("change", () => mark(box.checked));
-    // Next counts this stop as read, and flashes the next stop's heading so the jump is visible.
+    // Next counts this stop as read, closes it, opens the next one, and flashes its heading so the jump is visible.
     if (next) foot.querySelector("a.btn").addEventListener("click", () => {
       if (!box.checked) { box.checked = true; mark(true); }
+      setOpen(sec, false); setOpen(next, true);
       const head = next.querySelector(".stop-head");
       head.classList.remove("arrived"); void head.offsetWidth; head.classList.add("arrived");
     });
   });
+  // Opening and closing stops. A closed stop keeps its head, files and tags; the rest is
+  // hidden="until-found", so find-in-page still searches it and opens the stop on a match.
+  // Which stops are open is remembered per browser.
+  const opened = new Set(store.get("ifsdep-guide-open") || []);
+  function setOpen(sec, on, save = true) {
+    on ? opened.add(sec.id) : opened.delete(sec.id);
+    sec.classList.toggle("closed", !on);
+    const body = sec.querySelector(".stop-body");
+    if (on) body.removeAttribute("hidden"); else body.setAttribute("hidden", "until-found");
+    const b = sec.querySelector(".fold");
+    b.textContent = on ? "Close ▴" : "Open ▾";
+    b.setAttribute("aria-expanded", String(on));
+    if (save) store.set("ifsdep-guide-open", [...opened]);
+  }
+  stops.forEach((sec) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "fold";
+    sec.querySelector(".stop-head").append(b);
+    const body = document.createElement("div"); body.className = "stop-body";
+    body.append(...[...sec.children].filter((el) => !el.matches(".stop-head, .files, .tags")));
+    sec.append(body);
+    sec.querySelector(".stop-head").addEventListener("click", (e) => {
+      if (e.target.closest("a")) return;
+      setOpen(sec, sec.classList.contains("closed"));
+    });
+    sec.addEventListener("beforematch", () => setOpen(sec, true));
+    setOpen(sec, opened.has(sec.id), false);
+  });
+  document.getElementById("open-all").addEventListener("click", () => stops.forEach((s) => setOpen(s, true)));
+  document.getElementById("close-all").addEventListener("click", () => stops.forEach((s) => setOpen(s, false)));
+  // Any link to a stop (the side list, the pipeline boxes, "stop 07" references) opens it before the jump.
+  const openFor = (hash) => { const t = hash && hash.startsWith("#s-") && document.getElementById(hash.slice(1)); if (t && t.matches("section.stop")) setOpen(t, true); };
+  document.addEventListener("click", (e) => { const a = e.target.closest('a[href^="#s-"]'); if (a) openFor(a.getAttribute("href")); }, true);
+  addEventListener("hashchange", () => openFor(location.hash));
+  if (location.hash) { openFor(location.hash); document.getElementById(location.hash.slice(1))?.scrollIntoView(); }
+
   const counted = stops.filter((s) => s.id !== "s-patterns");
   function paintRead() {
     links.forEach((a, id) => a.classList.toggle("read", read.has(id)));
@@ -1649,7 +1696,7 @@ edge 22 {"from":"u19","to":"u14","kind":"include","file":39,"line":6,"layer":"Cu
     const pool = stops.filter((s) => !s.classList.contains("dim"));
     const i = pool.indexOf(current);
     const to = k === "j" ? pool[Math.min(pool.length - 1, i + 1)] : pool[Math.max(0, i - 1)];
-    if (to) { to.scrollIntoView({ behavior: "smooth" }); current = to; }
+    if (to) { setOpen(to, true); to.scrollIntoView({ behavior: "smooth" }); current = to; }
   });
   document.body.id = "top";
 })();
