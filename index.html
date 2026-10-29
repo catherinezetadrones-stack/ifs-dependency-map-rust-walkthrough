@@ -111,6 +111,8 @@ section.stop { padding: 40px 0 8px; border-bottom: 1px solid var(--line); }
 section.stop.dim { opacity: .35; }
 .stop-head { display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap; }
 .stop-head .num { font: 700 .9rem var(--f-code); color: var(--accent-ink); background: var(--accent); border-radius: 6px; padding: 2px 8px; font-variant-numeric: tabular-nums; }
+.stop-head.arrived { animation: arrived 1.4s ease-out; border-radius: 8px; }
+@keyframes arrived { 0% { background: var(--accent-soft); } 100% { background: transparent; } }
 .stop-head h2 { font-size: clamp(1.4rem, 2.6vw, 1.85rem); letter-spacing: -.01em; flex: 1 1 300px; }
 .files { font: .8rem var(--f-code); color: var(--muted); margin-top: 6px; }
 .tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; }
@@ -4598,9 +4600,17 @@ fn finds_all_three_cycles_and_classifies_them() {
     foot.innerHTML = `<label class="readmark"><input type="checkbox" id="read-${sec.id}"${read.has(sec.id) ? " checked" : ""}> I've read this stop</label>` +
       (next ? `<a class="btn primary" href="#${next.id}">Next: ${esc(next.dataset.title)} →</a>` : `<a class="btn" href="#top">Back to the top ↑</a>`);
     sec.append(foot);
-    foot.querySelector("input").addEventListener("change", (e) => {
-      e.target.checked ? read.add(sec.id) : read.delete(sec.id);
+    const box = foot.querySelector("input");
+    const mark = (on) => {
+      on ? read.add(sec.id) : read.delete(sec.id);
       store.set("ifsdep-guide-read", [...read]); paintRead();
+    };
+    box.addEventListener("change", () => mark(box.checked));
+    // Next counts this stop as read, and flashes the next stop's heading so the jump is visible.
+    if (next) foot.querySelector("a.btn").addEventListener("click", () => {
+      if (!box.checked) { box.checked = true; mark(true); }
+      const head = next.querySelector(".stop-head");
+      head.classList.remove("arrived"); void head.offsetWidth; head.classList.add("arrived");
     });
   });
   const counted = stops.filter((s) => s.id !== "s-patterns");
