@@ -301,7 +301,7 @@ table.cheat th { font: 600 .72rem var(--f-code); letter-spacing: .06em; text-tra
   </table></div>
   <div class="prose">
     <p>After that, <code>json.rs</code> (<a class="ref" href="#s-json"></a>) turns the <code>Index</code> into one JSON string. The CLI (<a class="ref" href="#s-cli"></a>) prints it or writes it to a file. The Tauri app (<a class="ref" href="#s-tauri"></a>) sends it to the TypeScript UI (<a class="ref" href="#s-ui"></a>), which draws three zoom levels: components, files, objects. The Trace view (<a class="ref" href="#s-trace"></a>) is separate: it reads one PL/SQL method on demand and isn't part of the index.</p>
-    <p>On the synthetic fixtures (<code>fixtures/core</code>, <code>fixtures/cust</code>) one run gives <strong>49 files, 25 units, 98 objects, 135 edges and 18 findings</strong> in about 12 ms. That's the output of <code>cargo run --bin ifsdep -- --core fixtures/core --cust fixtures/cust</code>, and the last stop, <a class="ref" href="#s-example"></a>, follows one of those 18 findings all the way through.</p>
+    <p>On the synthetic fixtures (<code>fixtures/core</code>, <code>fixtures/cust</code>) one run gives <strong>51 files, 26 units, 101 objects, 141 edges and 18 findings</strong> in about 12 ms. That's the output of <code>cargo run --bin ifsdep -- --core fixtures/core --cust fixtures/cust</code>, and the last stop, <a class="ref" href="#s-example"></a>, follows one of those 18 findings all the way through.</p>
   </div>
   <pre class="code" data-src="crates/ifsdep-core/src/lib.rs:1-11" data-mark="3:1,8:2,10:3"></pre>
   <ol class="co">
@@ -1015,7 +1015,7 @@ println!("{}", parent.name);   // uses parent after the push
     <p>With two reference inputs and no <code>self</code>, none of these apply, and leaving the lifetime off is error E0106.</p>
   </div>
   <pre class="code" data-src="crates/ifsdep-core/src/analyze.rs:191-193" data-mark="191:15"></pre>
-  <pre class="code" data-src="crates/ifsdep-core/src/upgrade.rs:535-544" data-mark="537:16,538:17"></pre>
+  <pre class="code" data-src="crates/ifsdep-core/src/upgrade.rs:540-549" data-mark="542:16,543:17"></pre>
   <pre class="code" data-src="crates/ifsdep-core/tests/fixtures.rs:15-17" data-mark="15:18"></pre>
   <ol class="co">
     <li data-n="15"><div>Two reference inputs, <code>idx</code> and <code>id</code>. <code>&lt;'a&gt;</code> says the result borrows from <code>idx</code> only, so the id string can be a temporary that's dropped right away.</div></li>
@@ -1094,7 +1094,7 @@ println!("{}", parent.name);   // uses parent after the push
   <div class="stop-head"><span class="num"></span><h2>Upgrade comparison: caches and a line diff</h2></div>
   <div class="files">crates/ifsdep-core/src/upgrade.rs · runs only with --prev-core</div>
   <div class="prose"><p>Given the previous Core, the upgrade check looks at every Cust override, finds the Core declaration it layers over, reads the same declaration from the old Core, and diffs the two. The severity depends on what changed: the signature (your override no longer matches) or just the body (your <code>@Overtake</code> copy is missing IFS's fix). The diff goes into the finding and the UI renders it.</p></div>
-  <pre class="code" data-src="crates/ifsdep-core/src/upgrade.rs:27-63" data-mark="28:1,29:2,33:3,36:4,45:5,46:6,47:7"></pre>
+  <pre class="code" data-src="crates/ifsdep-core/src/upgrade.rs:28-64" data-mark="29:1,30:2,34:3,37:4,46:5,47:6,48:7"></pre>
   <ol class="co">
     <li data-n="1"><div>A cache keyed by relative path. <code>Option&lt;String&gt;</code> also remembers misses, so a file missing from the old Core is looked up on disk only once.</div></li>
     <li data-n="2"><div><code>let mut read_prev = |rel: &amp;str| -&gt; Option&lt;String&gt; { … }</code> is an <code>FnMut</code> closure that captures <code>cache</code> mutably and <code>prev</code> by reference.</div></li>
@@ -1104,7 +1104,7 @@ println!("{}", parent.name);   // uses parent after the push
     <li data-n="6"><div>let-else with a tuple of two <code>Option</code>s: both ends must be objects.</div></li>
     <li data-n="7"><div>Only Cust over Core matters here: a Core override of Core is IFS's business.</div></li>
   </ol>
-  <pre class="code" data-src="crates/ifsdep-core/src/upgrade.rs:64-103" data-mark="64:8,65:9,75:10,76:11,95:12,97:13"></pre>
+  <pre class="code" data-src="crates/ifsdep-core/src/upgrade.rs:65-104" data-mark="65:8,66:9,76:10,77:11,96:12,98:13"></pre>
   <ol class="co">
     <li data-n="8"><div>Tuple <code>let</code>: two calls, two bindings, one line.</div></li>
     <li data-n="9"><div>Comments and whitespace alone don't count as a change: both sides are normalized before comparing.</div></li>
@@ -1113,7 +1113,7 @@ println!("{}", parent.name);   // uses parent after the push
     <li data-n="12"><div>Rebinding with <code>mut</code>: <code>let (mut severity, mut what, …) = (severity, what.to_string(), …)</code> shadows the immutable values with mutable ones for the adjustments below.</div></li>
     <li data-n="13"><div><code>against_copy(&amp;mut diff, &amp;ov_lines)</code>: <code>&amp;mut Vec&lt;DiffLine&gt;</code> coerces to <code>&amp;mut [DiffLine]</code> and <code>&amp;Vec&lt;&amp;str&gt;</code> to <code>&amp;[&amp;str]</code>. The function marks each diff line with whether your copy has it.</div></li>
   </ol>
-  <pre class="code" data-src="crates/ifsdep-core/src/upgrade.rs:569-615" data-mark="571:14,574:15,576:16,577:17,598:18,599:19,603:20"></pre>
+  <pre class="code" data-src="crates/ifsdep-core/src/upgrade.rs:574-620" data-mark="576:14,579:15,581:16,582:17,603:18,604:19,608:20"></pre>
   <ol class="co">
     <li data-n="14"><div>A guard against quadratic blow-up: the longest-common-subsequence table is <code>n × m</code>, so large declarations are reported without a line diff.</div></li>
     <li data-n="15"><div>A tiny comparison closure that ignores trailing whitespace.</div></li>
@@ -1392,15 +1392,15 @@ cargo test -- --nocapture  # show println! output</pre>
   </ol>
   <div class="prose">
     <h3>3. Group (stage 2)</h3>
-    <p>The key <code>(UnitKind::Fragment, "SHOPORDERCOMMON")</code> already exists from the Core file, so the Cust file joins unit <code>u14</code> as an <code>Overlay</code>, and <code>u14.has_overlay</code> becomes true. <code>TiShopOrderExtras</code> is new, so it becomes <code>u19</code> with <code>origin: Cust</code> (<a class="ref" href="#s-group"></a>). In the JSON:</p>
-    <pre class="json">u14 {"kind":"fragment","name":"ShopOrderCommon","origin":"Core","files":[21,37],"has_overlay":true}
-u19 {"kind":"fragment","name":"TiShopOrderExtras","origin":"Cust","files":[39],"has_overlay":false}</pre>
+    <p>The key <code>(UnitKind::Fragment, "SHOPORDERCOMMON")</code> already exists from the Core file, so the Cust file joins unit <code>u14</code> as an <code>Overlay</code>, and <code>u14.has_overlay</code> becomes true. <code>TiShopOrderExtras</code> is new, so it becomes <code>u20</code> with <code>origin: Cust</code> (<a class="ref" href="#s-group"></a>). In the JSON:</p>
+    <pre class="json">u14 {"kind":"fragment","name":"ShopOrderCommon","origin":"Core","files":[21,38],"has_overlay":true}
+u20 {"kind":"fragment","name":"TiShopOrderExtras","origin":"Cust","files":[41],"has_overlay":false}</pre>
     <h3>4. Edges (stage 4)</h3>
-    <p>For file 37 (the -Cust file), <code>lookup(UnitKind::Fragment, "TISHOPORDEREXTRAS")</code> succeeds. The file is in Cust, so pure Cust units are visible to it (<a class="ref" href="#s-edges"></a>, point 4). Two <code>Include</code> edges come out, both written in Cust files:</p>
-    <pre class="json">edge 19 {"from":"u14","to":"u19","kind":"include","file":37,"line":6,"layer":"Cust"}
-edge 22 {"from":"u19","to":"u14","kind":"include","file":39,"line":6,"layer":"Cust"}</pre>
+    <p>For file 38 (the -Cust file), <code>lookup(UnitKind::Fragment, "TISHOPORDEREXTRAS")</code> succeeds. The file is in Cust, so pure Cust units are visible to it (<a class="ref" href="#s-edges"></a>, point 4). Two <code>Include</code> edges come out, both written in Cust files:</p>
+    <pre class="json">edge 20 {"from":"u14","to":"u20","kind":"include","file":38,"line":6,"layer":"Cust"}
+edge 24 {"from":"u20","to":"u14","kind":"include","file":41,"line":6,"layer":"Cust"}</pre>
     <h3>5. The CYCLE rule (stage 7)</h3>
-    <p><code>cycles()</code> (<a class="ref" href="#s-graph"></a>) builds the Core-only graph, which has no edge 19 or 20, so <code>u14</code> and <code>u19</code> are in no Core cycle. On the full graph, Tarjan returns the SCC <code>{u14, u19}</code>. Because it isn't Core-only, the title is "appears with Cust layer", and the suggested break is the first Cust hop, edge 19 at <code>ShopOrderCommon-Cust.fragment:6</code>.</p>
+    <p><code>cycles()</code> (<a class="ref" href="#s-graph"></a>) builds the Core-only graph, which has no edge 20 or 21, so <code>u14</code> and <code>u20</code> are in no Core cycle. On the full graph, Tarjan returns the SCC <code>{u14, u20}</code>. Because it isn't Core-only, the title is "appears with Cust layer", and the suggested break is the first Cust hop, edge 20 at <code>ShopOrderCommon-Cust.fragment:6</code>.</p>
     <h3>6. Finishing (stage 7)</h3>
     <p>The location is in a Cust file, so <code>involves_cust = true</code>. The findings are sorted (errors first, then by rule and message), and this one gets the id <code>f2</code> (<a class="ref" href="#s-dyn"></a>).</p>
     <h3>7. JSON</h3>
@@ -1408,14 +1408,14 @@ edge 22 {"from":"u19","to":"u14","kind":"include","file":39,"line":6,"layer":"Cu
     <pre class="json">{"id":"f2","severity":"error","rule":"CYCLE",
  "title":"Circular include (appears with Cust layer)",
  "message":"ShopOrderCommon → TiShopOrderExtras → ShopOrderCommon",
- "nodes":["u14","u19"],"edges":[19,22],
- "location":{"file":37,"line":6},
+ "nodes":["u14","u20"],"edges":[20,24],
+ "location":{"file":38,"line":6},
  "suggestion":{"summary":"Break the loop at ShopOrderCommon → TiShopOrderExtras: …",
    "snippet":"-- shpord/model/shpord/ShopOrderCommon-Cust.fragment:6\n- include fragment TiShopOrderExtras;\n…",
    "target":"shpord/model/shpord/ShopOrderCommon-Cust.fragment"},
  "evidence":[],"involves_cust":true,"diff":null,"upgrade":false}</pre>
     <h3>8. On screen</h3>
-    <p>The UI's <code>Model.indexFindings</code> (<a class="ref" href="#s-ui"></a>) files <code>f2</code> under <code>u14</code> and <code>u19</code>, so both nodes take the error color. <code>edges: [19, 22]</code> highlights the loop, and <code>location</code> becomes an <em>Open</em> button that calls Rust's <code>open_in_editor</code> with the absolute path of file 37 and line 6.</p>
+    <p>The UI's <code>Model.indexFindings</code> (<a class="ref" href="#s-ui"></a>) files <code>f2</code> under <code>u14</code> and <code>u20</code>, so both nodes take the error color. <code>edges: [20, 24]</code> highlights the loop, and <code>location</code> becomes an <em>Open</em> button that calls Rust's <code>open_in_editor</code> with the absolute path of file 38 and line 6.</p>
     <h3>9. The test that pins it down</h3>
   </div>
   <pre class="code" data-src="crates/ifsdep-core/tests/fixtures.rs:71-92" data-mark="74:7,81:8,87:9,89:10"></pre>
