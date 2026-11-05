@@ -293,15 +293,15 @@ table.cheat th { font: 600 .72rem var(--f-code); letter-spacing: .06em; text-tra
       <tr><td>1. Scan and parse</td><td>97–155</td><td>the two folders</td><td><code>idx.files</code>, plus a parallel local <code>parsed: Vec&lt;Parsed&gt;</code></td><td><a class="ref" href="#s-parse"></a></td></tr>
       <tr><td>2. Group into units</td><td>159–212</td><td>file names, headers</td><td><code>idx.units</code>, and each file's unit and role (base, or the Cust file of a Core unit)</td><td><a class="ref" href="#s-group"></a></td></tr>
       <tr><td>3. Objects</td><td>216–350</td><td>parsed declarations, <code>.entity</code> attributes</td><td><code>idx.objects</code>, including generated getters</td><td><a class="ref" href="#s-objects"></a></td></tr>
-      <tr><td>4. Unit-level edges</td><td>354–475</td><td>includes, <code>projection X;</code>, package calls</td><td>local <code>edges</code>: include, calls, implements…</td><td><a class="ref" href="#s-edges"></a></td></tr>
-      <tr><td>5. Object resolution</td><td>479–976</td><td>unit edges (for reachability) and every queued reference</td><td>overrides, references, invokes, reads, bindings, <code>idx.relations</code></td><td><a class="ref" href="#s-resolve"></a>–<a class="ref" href="#s-dyn"></a></td></tr>
-      <tr><td>6. Components</td><td>980–1011</td><td>deploy.ini files</td><td><code>idx.components</code></td><td><a class="ref" href="#s-dyn"></a></td></tr>
-      <tr><td>7. Findings</td><td>1015–1054</td><td>the finished graph</td><td><code>idx.findings</code> from <code>analyze</code>, <code>datatypes</code> and <code>upgrade</code></td><td><a class="ref" href="#s-graph"></a>–<a class="ref" href="#s-upgrade"></a></td></tr>
+      <tr><td>4. Unit-level edges</td><td>354–490</td><td>includes, <code>projection X;</code>, package calls</td><td>local <code>edges</code>: include, calls, implements…</td><td><a class="ref" href="#s-edges"></a></td></tr>
+      <tr><td>5. Object resolution</td><td>494–991</td><td>unit edges (for reachability) and every queued reference</td><td>overrides, references, invokes, reads, bindings, <code>idx.relations</code></td><td><a class="ref" href="#s-resolve"></a>–<a class="ref" href="#s-dyn"></a></td></tr>
+      <tr><td>6. Components</td><td>995–1026</td><td>deploy.ini files</td><td><code>idx.components</code></td><td><a class="ref" href="#s-dyn"></a></td></tr>
+      <tr><td>7. Findings</td><td>1030–1069</td><td>the finished graph</td><td><code>idx.findings</code> from <code>analyze</code>, <code>datatypes</code> and <code>upgrade</code></td><td><a class="ref" href="#s-graph"></a>–<a class="ref" href="#s-upgrade"></a></td></tr>
     </tbody>
   </table></div>
   <div class="prose">
     <p>After that, <code>json.rs</code> (<a class="ref" href="#s-json"></a>) turns the <code>Index</code> into one JSON string. The CLI (<a class="ref" href="#s-cli"></a>) prints it or writes it to a file. The Tauri app (<a class="ref" href="#s-tauri"></a>) sends it to the TypeScript UI (<a class="ref" href="#s-ui"></a>), which draws three zoom levels: components, files, objects. The Trace view (<a class="ref" href="#s-trace"></a>) is separate: it reads one PL/SQL method on demand and isn't part of the index.</p>
-    <p>On the synthetic fixtures (<code>fixtures/core</code>, <code>fixtures/cust</code>) one run gives <strong>51 files, 26 units, 101 objects, 141 edges and 18 findings</strong> in about 12 ms. That's the output of <code>cargo run --bin ifsdep -- --core fixtures/core --cust fixtures/cust</code>, and the last stop, <a class="ref" href="#s-example"></a>, follows one of those 18 findings all the way through.</p>
+    <p>On the synthetic fixtures (<code>fixtures/core</code>, <code>fixtures/cust</code>) one run gives <strong>54 files, 28 units, 105 objects, 148 edges and 19 findings</strong> in about 12 ms. That's the output of <code>cargo run --bin ifsdep -- --core fixtures/core --cust fixtures/cust</code>, and the last stop, <a class="ref" href="#s-example"></a>, follows one of those 19 findings all the way through.</p>
   </div>
   <pre class="code" data-src="crates/ifsdep-core/src/lib.rs:1-11" data-mark="3:1,8:2,10:3"></pre>
   <ol class="co">
@@ -357,7 +357,7 @@ table.cheat th { font: 600 .72rem var(--f-code); letter-spacing: .06em; text-tra
     <li data-n="5"><div><code>matches!</code> is a macro that expands to a <code>match</code> returning <code>true</code>/<code>false</code>. Methods take <code>self</code> by value here. That's cheap and idiomatic because <code>FileKind</code> is <code>Copy</code>.</div></li>
   </ol>
   <pre class="code" data-src="crates/ifsdep-core/src/model.rs:93-103" data-mark="101:6"></pre>
-  <pre class="code" data-src="crates/ifsdep-core/src/model.rs:328-350" data-mark="328:7,344:8,348:9,349:10"></pre>
+  <pre class="code" data-src="crates/ifsdep-core/src/model.rs:331-353" data-mark="331:7,347:8,351:9,352:10"></pre>
   <ol class="co">
     <li data-n="6"><div><strong>The most important design decision in the codebase.</strong> A <code>Unit</code> doesn't hold references to its files (<code>Vec&lt;&amp;SourceFile&gt;</code>). It holds their <em>positions</em> in <code>Index.files</code>. See the box below.</div></li>
     <li data-n="7"><div><code>#[derive(Default)]</code> on a struct works when every field has a default: empty <code>Vec</code>s, <code>None</code>, <code>0</code>. Later code writes <code>Index { version: 1, ..Default::default() }</code> (struct update syntax) to set a few fields and default the rest.</div></li>
@@ -470,11 +470,11 @@ println!("{}", parent.name);   // uses parent after the push
 <section class="stop" id="s-plsql" data-title="PL/SQL scanner: 'static, state machines, stacks" data-group="Parsers" data-c="life str opt iter mod pat">
   <div class="stop-head"><span class="num"></span><h2>PL/SQL scanner: <code>'static</code>, state machines, stacks</h2></div>
   <div class="files">crates/ifsdep-core/src/plsql.rs</div>
-  <pre class="code" data-src="crates/ifsdep-core/src/plsql.rs:10-17" data-mark="12:1"></pre>
+  <pre class="code" data-src="crates/ifsdep-core/src/plsql.rs:10-19" data-mark="12:1"></pre>
   <ol class="co">
     <li data-n="1"><div><code>kind: &amp;'static str</code> stores a reference in a struct <em>without</em> giving the struct a lifetime parameter. It works because the only values ever stored are literals (<code>"procedure"</code>, <code>"function"</code>), which live forever. Compare <code>name: String</code>: it comes from file text, so it has to be owned.</div></li>
   </ol>
-  <pre class="code" data-src="crates/ifsdep-core/src/plsql.rs:47-80" data-mark="47:2,52:3,53:4,62:5,63:6,79:7"></pre>
+  <pre class="code" data-src="crates/ifsdep-core/src/plsql.rs:52-85" data-mark="52:2,57:3,58:4,67:5,68:6,84:7"></pre>
   <ol class="co">
     <li data-n="2"><div><code>pub(crate)</code>: visible anywhere in this crate, invisible outside it. <code>trace.rs</code> imports <code>is_ident</code>, but the CLI binary can't.</div></li>
     <li data-n="3"><div>Elision again: one reference input, <code>line</code>, so the <code>&amp;str</code> in the returned tuple borrows from <code>line</code>. The <code>usize</code> is plain data.</div></li>
@@ -483,7 +483,7 @@ println!("{}", parent.name);   // uses parent after the push
     <li data-n="6"><div><code>?</code> on <code>Option</code> inside a function that returns <code>Option</code>: an empty line exits immediately.</div></li>
     <li data-n="7"><div>Returning the borrowed <code>name</code> without copying it. The caller (<a class="ref" href="#s-parse"></a>) decides whether to copy it with <code>name.to_string()</code>.</div></li>
   </ol>
-  <pre class="code" data-src="crates/ifsdep-core/src/plsql.rs:202-286" data-mark="205:8,221:9,233:10,234:11,242:12,271:13,284:14"></pre>
+  <pre class="code" data-src="crates/ifsdep-core/src/plsql.rs:244-355" data-mark="248:8,268:9,282:10,283:11,307:12,337:13,352:14"></pre>
   <ol class="co">
     <li data-n="8"><div>A stack of <code>Option&lt;String&gt;</code> mirrors nested <code>$IF … $END</code> blocks. <code>None</code> is a level that doesn't guard a component.</div></li>
     <li data-n="9"><div><code>.unwrap()</code> right after <code>match parts.next().unwrap_or("")</code> matched a non-empty word, so it can't panic. Unwrapping is fine when an earlier line has already proven the value exists.</div></li>
@@ -493,7 +493,7 @@ println!("{}", parent.name);   // uses parent after the push
     <li data-n="13"><div><code>guards.iter().rev().find_map(|g| g.clone())</code> finds the innermost real guard. <code>find_map</code> is "map, then return the first <code>Some</code>". The <code>clone</code> is needed because <code>Call</code> owns its <code>guard</code>.</div></li>
     <li data-n="14"><div>Popping on <code>$END</code> <em>after</em> the line's calls are recorded, so calls on the <code>$END</code> line still count as inside the block.</div></li>
   </ol>
-  <pre class="code" data-src="crates/ifsdep-core/src/plsql.rs:483-516" data-mark="484:15,491:16,498:17"></pre>
+  <pre class="code" data-src="crates/ifsdep-core/src/plsql.rs:552-585" data-mark="553:15,560:16,567:17"></pre>
   <ol class="co">
     <li data-n="15"><div>An enum declared <em>inside</em> a function, visible only there. It's a natural fit for a state machine's states. The <code>PartialEq</code> derive is local too.</div></li>
     <li data-n="16"><div><code>Vec&lt;char&gt;</code> trades memory (4 bytes per character) for O(1) random access and lookahead (<code>chars.get(i + 1)</code>). You can't index a <code>&amp;str</code> by character position, because characters are 1 to 4 bytes wide.</div></li>
@@ -708,22 +708,22 @@ println!("{}", parent.name);   // uses parent after the push
 <section class="stop" id="s-edges" data-title="Stage 4: edges, and collecting before you change" data-group="build.rs, the core" data-c="clos coll borrow iter pat">
   <div class="stop-head"><span class="num"></span><h2>Stage 4: edges, and collecting before you change</h2></div>
   <div class="files">crates/ifsdep-core/src/build.rs</div>
-  <div class="prose"><p>One rule shapes this whole function: <strong>build new things in local variables, and read existing things from <code>idx</code></strong>. <code>edges</code> is a local <code>Vec</code> until line 1015 (<code>idx.edges = edges;</code>), so closures can borrow <code>idx</code> freely while new edges are pushed.</p></div>
-  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:363-395" data-mark="365:1,370:2,394:3,395:4"></pre>
+  <div class="prose"><p>One rule shapes this whole function: <strong>build new things in local variables, and read existing things from <code>idx</code></strong>. <code>edges</code> is a local <code>Vec</code> until line 1030 (<code>idx.edges = edges;</code>), so closures can borrow <code>idx</code> freely while new edges are pushed.</p></div>
+  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:363-396" data-mark="365:1,370:2,395:3,396:4"></pre>
   <ol class="co">
     <li data-n="1"><div><code>push_edge</code> takes <code>&amp;mut Vec&lt;Edge&gt;</code> as a parameter. If it captured <code>edges</code> mutably, nothing else could touch <code>edges</code> while <code>push_edge</code> was still in use. <code>let mut e = e;</code> rebinds the parameter as mutable.</div></li>
     <li data-n="2"><div><code>edge</code> captures nothing, so it acts like a plain <code>fn</code> (it could even coerce to a <code>fn</code> pointer). Writing it as a closure keeps it next to the code that uses it.</div></li>
     <li data-n="3"><div><code>lookup</code> captures <code>layer</code>, <code>unit_map</code> and <code>idx</code> by shared reference. That's fine because nothing in this loop changes <code>idx</code>.</div></li>
     <li data-n="4"><div><code>.copied()</code> turns <code>Option&lt;&amp;usize&gt;</code> into <code>Option&lt;usize&gt;</code>, and <code>.filter(…)</code> turns <code>Some</code> into <code>None</code> when the test fails. This one line encodes the model rule "Core code only sees Core".</div></li>
   </ol>
-  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:429-458" data-mark="431:5,437:6,441:7,447:8"></pre>
+  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:430-473" data-mark="434:5,452:6,454:7,461:8"></pre>
   <ol class="co">
-    <li data-n="5"><div>A <code>BTreeMap</code>, not a <code>HashMap</code>, so iteration follows key order. <code>HashMap</code> iteration order is randomized on every run (DoS protection), and that would make edge ids and findings vary from run to run. Commit 81df359 ("Make DATATYPE_MISMATCH findings the same on every run") is the same concern elsewhere. <code>Option&lt;String&gt;</code> works in the key because it's <code>Ord</code>.</div></li>
-    <li data-n="6"><div>A fallback chain: the call's own <code>$IF</code> guard, otherwise the enclosing method's <code>@DynamicComponentDependency</code>. <code>and_then</code> chains steps that may each return nothing.</div></li>
-    <li data-n="7"><div><code>or_insert</code> with a tuple, then updating fields through <code>entry.0</code> and <code>entry.2</code>.</div></li>
-    <li data-n="8"><div>Destructuring nested tuples in a <code>for</code> pattern. <code>in agg</code> (not <code>&amp;agg</code>) consumes the map, so <code>guard</code> and <code>methods</code> are owned and can move into the edge without cloning.</div></li>
+    <li data-n="5"><div>A <code>BTreeMap</code>, not a <code>HashMap</code>, so iteration follows key order. <code>HashMap</code> iteration order is randomized on every run (DoS protection), and that would make edge ids and findings vary from run to run. Commit 81df359 ("Make DATATYPE_MISMATCH findings the same on every run") is the same concern elsewhere. <code>Option&lt;String&gt;</code> works in the key because it's <code>Ord</code>. The <code>type Calls = …</code> line above it is a type alias: a local name for a long tuple type, with no new type behind it.</div></li>
+    <li data-n="6"><div>When a guard around the call names the target's own component, that is the guard shown. Otherwise, a fallback chain: the call's own <code>$IF</code> guard, otherwise the enclosing method's <code>@DynamicComponentDependency</code>. <code>and_then</code> chains steps that may each return nothing.</div></li>
+    <li data-n="7"><div><code>or_insert_with</code> takes a closure, so <code>all.clone()</code> only runs when the key is new. Then the fields are updated through <code>entry.0</code>, <code>entry.2</code> and <code>entry.3</code>. <code>retain</code> keeps only the guards that every call on the edge has.</div></li>
+    <li data-n="8"><div>Destructuring nested tuples in a <code>for</code> pattern. <code>in agg</code> (not <code>&amp;agg</code>) consumes the map, so <code>guard</code>, <code>methods</code> and <code>all</code> are owned and can move into the edge without cloning.</div></li>
   </ol>
-  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:464-484" data-mark="466:9,472:10,478:11"></pre>
+  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:479-499" data-mark="481:9,487:10,493:11"></pre>
   <ol class="co">
     <li data-n="9"><div><strong>Collect, then change.</strong> The loop needs to read <code>edges</code> and push to it. You can't push to a <code>Vec</code> while an iterator over it is alive, since the push could reallocate under the iterator. So the needed pairs are first copied into an owned <code>Vec</code>…</div></li>
     <li data-n="10"><div>…and the include edges are copied too (<code>.cloned().collect()</code>). After that, the inner loop's <code>push_edge(&amp;mut edges, …)</code> conflicts with nothing. This is the most common fix for "cannot borrow as mutable because it is also borrowed as immutable".</div></li>
@@ -736,7 +736,7 @@ println!("{}", parent.name);   // uses parent after the push
   <div class="stop-head"><span class="num"></span><h2>Stage 5: name resolution with <code>Rc</code> and trait-object closures</h2></div>
   <div class="files">crates/ifsdep-core/src/build.rs</div>
   <div class="prose"><p>This is the hardest Rust in the codebase. <code>resolve</code> answers "which declaration does this name refer to?" by ranking candidates: same unit, then reachable units, then units reachable from a client or projection this unit ends up in. Reachability is computed lazily and cached.</p></div>
-  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:503-599" data-mark="513:1,514:2,529:3,553:4,554:5,556:6,564:7,578:8,579:9,588:10,593:11,597:12"></pre>
+  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:518-614" data-mark="528:1,529:2,544:3,568:4,569:5,571:6,579:7,593:8,594:9,603:10,608:11,612:12"></pre>
   <ol class="co">
     <li data-n="1"><div>A memo cache whose values are <code>Rc&lt;HashSet&lt;usize&gt;&gt;</code>: reference-counted, shared ownership, single-threaded. Point 3 explains why it's not a plain <code>&amp;HashSet</code>.</div></li>
     <li data-n="2"><div><code>let mut closure</code>: the closure changes <code>closure_cache</code>, which makes it <code>FnMut</code>, and calling an <code>FnMut</code> needs <code>&amp;mut</code> access to the closure itself. It reads <code>adjacency</code> by shared reference.</div></li>
@@ -757,7 +757,7 @@ println!("{}", parent.name);   // uses parent after the push
 <section class="stop" id="s-overrides" data-title="Overrides: cloning to end a borrow" data-group="build.rs, the core" data-c="own borrow clos dyn">
   <div class="stop-head"><span class="num"></span><h2>Overrides: cloning to end a borrow</h2></div>
   <div class="files">crates/ifsdep-core/src/build.rs</div>
-  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:601-656" data-mark="607:1,613:2,616:3,621:4,638:5,643:6"></pre>
+  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:616-671" data-mark="622:1,628:2,631:3,636:4,653:5,658:6"></pre>
   <ol class="co">
     <li data-n="1"><div><code>let o = idx.objects[oi].clone();</code> is the simplest fix for a borrow conflict. <code>o</code> is used until line 653 (<code>o.modifier.clone()</code>), but lines 638 and 643 write to <code>idx.objects[oi]</code>. A reference (<code>&amp;idx.objects[oi]</code>) would still be alive during those writes, so the compiler would reject them. Cloning means <code>o</code> borrows nothing. The cost is copying an <code>Object</code>'s <code>String</code>s once per override, which is cheap at this scale.</div></li>
     <li data-n="2"><div>Passing <code>&amp;idx.objects</code> and <code>&amp;mut closure</code> into <code>resolve</code>. Both borrows end when the call returns.</div></li>
@@ -773,7 +773,7 @@ println!("{}", parent.name);   // uses parent after the push
   <div class="stop-head"><span class="num"></span><h2>Stage 5: references, plsvc methods, calls</h2></div>
   <div class="files">crates/ifsdep-core/src/build.rs</div>
   <div class="prose"><p>With overrides resolved, stage 5 links everything the parsers queued: Marble references and calls, projection actions to their <code>.plsvc</code> methods, and PL/SQL method calls and table reads. This is where most object-level edges come from, and what the Objects view draws.</p></div>
-  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:730-789" data-mark="731:1,736:2,738:3,764:4,770:5,780:6,781:7,783:8"></pre>
+  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:745-804" data-mark="746:1,751:2,753:3,779:4,785:5,795:6,796:7,798:8"></pre>
   <ol class="co">
     <li data-n="1"><div><code>for (oi, r) in &amp;pending_refs</code>: iterating a <code>&amp;Vec&lt;(usize, Ref)&gt;</code> binds <code>oi: &amp;usize</code> and <code>r: &amp;Ref</code> (default binding modes). That's why the code writes <code>*oi</code>.</div></li>
     <li data-n="2"><div>Each match arm evaluates to an <code>(Option&lt;String&gt;, EdgeKind)</code> pair: where the link goes, if it resolved, and what kind it is. One <code>if let</code> at the end then handles every case.</div></li>
@@ -784,7 +784,7 @@ println!("{}", parent.name);   // uses parent after the push
     <li data-n="7"><div><code>rel_id</code> is the <code>FnMut</code> closure that finds or creates a relation by name (lines 665–677). Calling it needs a mutable borrow of the closure, which is fine inside the loop.</div></li>
     <li data-n="8"><div>A reference that doesn't resolve simply gets no edge. Unresolved includes and projections became findings in stage 4. Object references don't, because an unknown name there usually means a generated or unindexed base.</div></li>
   </ol>
-  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:791-833" data-mark="793:9,802:10,810:11,812:12,824:13,825:14"></pre>
+  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:806-848" data-mark="808:9,817:10,825:11,827:12,839:13,840:14"></pre>
   <ol class="co">
     <li data-n="9"><div>Which <code>.plsvc</code> units can implement each projection or fragment's actions: a projection's own, plus those of every projection that includes the fragment.</div></li>
     <li data-n="10"><div>An iterator chain: <code>enumerate → filter → filter_map → collect</code>. <code>filter_map</code> keeps only projections that have a plsvc and yields <code>(projection, plsvc)</code> pairs.</div></li>
@@ -793,7 +793,7 @@ println!("{}", parent.name);   // uses parent after the push
     <li data-n="13"><div><code>.cloned().unwrap_or_default()</code> turns <code>Option&lt;&amp;Vec&gt;</code> into an owned <code>Vec</code>. <code>.map(Vec::as_slice).unwrap_or_default()</code> would borrow instead and skip the copy.</div></li>
     <li data-n="14"><div>The naming rule IFS uses: projection action <code>DoIt</code> is implemented by <code>Do_It___</code>. Both splitting styles (<code>snake_name</code> and <code>snake_name_grouped</code>, <a class="ref" href="#s-plsql"></a>) are tried, each with and without the <code>___</code> suffix. A nested <code>find_map</code> plus <code>or_else</code> expresses "first match in priority order" without any loop variables.</div></li>
   </ol>
-  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:835-871" data-mark="837:15,841:16,842:17,848:18,851:19,854:20"></pre>
+  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:850-886" data-mark="852:15,856:16,857:17,863:18,866:19,869:20"></pre>
   <ol class="co">
     <li data-n="15"><div>let-else on the parsed record: only PL/SQL files.</div></li>
     <li data-n="16"><div><code>let Some(&amp;from) = c.in_method.and_then(|m| method_objects.get(&amp;(fi, m))) else</code>. <code>in_method</code> is <code>Option&lt;usize&gt;</code>, <code>and_then</code> looks up the object, <code>get</code> returns <code>Option&lt;&amp;usize&gt;</code>, and <code>&amp;from</code> copies the number out. Calls outside any method are skipped.</div></li>
@@ -809,7 +809,7 @@ println!("{}", parent.name);   // uses parent after the push
   <div class="stop-head"><span class="num"></span><h2>Stage 5: tables, views and their columns</h2></div>
   <div class="files">crates/ifsdep-core/src/build.rs</div>
   <div class="prose"><p>Now every <code>Relation</code> gets its definitions: from a <code>.views</code> or <code>.storage</code> statement, or generated from an <code>.entity</code>. This stage also builds <code>cols</code>, the column table that COLUMN_AMBIGUOUS needs (<a class="ref" href="#s-analyze"></a>). <code>cols</code> isn't part of the index; it's passed to the rules separately.</p></div>
-  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:873-939" data-mark="875:1,878:2,884:3,891:4,897:5,898:6,905:7,918:8,930:9,932:10"></pre>
+  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:888-954" data-mark="890:1,893:2,899:3,906:4,912:5,913:6,920:7,933:8,945:9,947:10"></pre>
   <ol class="co">
     <li data-n="1"><div><code>analyze::Columns::default()</code>: the rules module defines the type it wants as input, and the builder fills it in.</div></li>
     <li data-n="2"><div><code>.entity</code> files grouped by LU name, in a <code>BTreeMap</code> for a stable order.</div></li>
@@ -822,7 +822,7 @@ println!("{}", parent.name);   // uses parent after the push
     <li data-n="9"><div>A column is "added by Cust" if a Cust file declares it and Core's doesn't. These are exactly the columns that can make Core SQL ambiguous.</div></li>
     <li data-n="10"><div>A nested entry chain: <code>known.entry(rel).or_default().entry(c).or_insert_with(…)</code>. Two map levels, inserting at each level only if missing, with one lookup per level.</div></li>
   </ol>
-  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:950-991" data-mark="951:11,963:12,967:13,970:14,974:15,979:16"></pre>
+  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:965-1006" data-mark="966:11,978:12,982:13,985:14,989:15,994:16"></pre>
   <ol class="co">
     <li data-n="11"><div>Only <code>.views</code> / <code>.storage</code> / <code>.cre</code> records.</div></li>
     <li data-n="12"><div><code>v.modifier.as_ref().map_or("view".to_string(), |m| format!("view (@{m})"))</code>: a label built from an optional annotation.</div></li>
@@ -831,7 +831,7 @@ println!("{}", parent.name);   // uses parent after the push
     <li data-n="15"><div><code>*r != v.name</code>: <code>r</code> is <code>&amp;String</code> (from iterating <code>&amp;v.reads</code>), so <code>*r</code> is the <code>String</code>, compared by value. A view reading itself isn't an edge.</div></li>
     <li data-n="16"><div>Calls made inside a view (<code>Xxx_API.Get(…)</code> in its SELECT) become <code>Invokes</code> edges from the view to the PL/SQL method.</div></li>
   </ol>
-  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:1015-1021" data-mark="1015:17,1017:18"></pre>
+  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:1030-1036" data-mark="1030:17,1032:18"></pre>
   <ol class="co">
     <li data-n="17"><div>The edges built as a local since stage 4 move into the index. From here on, <code>idx.edges</code> is the source of truth.</div></li>
     <li data-n="18"><div><code>&amp;mut relations[…]</code>: <code>relations</code> has been mutably captured by the <code>rel_id</code> closure since line 665. That closure isn't used after this point, so its borrow is over and the vector can be borrowed directly. Closures follow the same NLL rules as any other borrow.</div></li>
@@ -842,14 +842,14 @@ println!("{}", parent.name);   // uses parent after the push
 <section class="stop" id="s-dyn" data-title="Stages 5–7: bindings, components, rules" data-group="build.rs, the core" data-c="dyn clos life pat coll own">
   <div class="stop-head"><span class="num"></span><h2>Stages 5–7: bindings, components, rules</h2></div>
   <div class="files">crates/ifsdep-core/src/build.rs</div>
-  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:993-1014" data-mark="995:1,996:2,1001:3,1008:4"></pre>
+  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:1008-1029" data-mark="1010:1,1011:2,1016:3,1023:4"></pre>
   <ol class="co">
     <li data-n="1"><div>Cloning to end a borrow, as in <a class="ref" href="#s-overrides"></a>.</div></li>
     <li data-n="2"><div><code>let Some(target) = &amp;o.target else</code>: matching on a reference makes <code>target</code> a <code>&amp;String</code>, so nothing moves out of <code>o</code>.</div></li>
     <li data-n="3"><div><strong>Why <code>Box&lt;dyn Fn&gt;</code>:</strong> each branch of the <code>if</code> makes a different closure, and each closure has its own unnameable type, but an <code>if</code> expression must have one type. Boxing each closure as <code>Box&lt;dyn Fn(&amp;Object) -&gt; bool&gt;</code> erases those types into one. The type annotation on the <code>let</code> tells the compiler to do that conversion in every branch.</div></li>
     <li data-n="4"><div><code>&amp;*accept</code>: <code>*</code> dereferences the <code>Box</code> to <code>dyn Fn</code>, and <code>&amp;</code> borrows it, giving the <code>&amp;dyn Fn</code> that <code>resolve</code> wants.</div></li>
   </ol>
-  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:1025-1056" data-mark="1026:5,1028:6,1036:7,1040:8,1043:9,1056:10"></pre>
+  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:1040-1071" data-mark="1041:5,1043:6,1051:7,1055:8,1058:9,1071:10"></pre>
   <ol class="co">
     <li data-n="5"><div>Stage 6: components by name, in a <code>BTreeMap</code> so they come out sorted.</div></li>
     <li data-n="6"><div><code>entry(…).or_insert_with(|| Component { … })</code> builds the struct only for a new component, and returns <code>&amp;mut Component</code> either way.</div></li>
@@ -858,7 +858,7 @@ println!("{}", parent.name);   // uses parent after the push
     <li data-n="9"><div><code>d.description.clone().or(c.description.take())</code>: prefer this file's description, otherwise keep the old one. <code>take()</code> moves the old value out so it can be put back without a clone.</div></li>
     <li data-n="10"><div><code>comps.into_values().collect()</code>: consume the map and keep the values, already in name order.</div></li>
   </ol>
-  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:1058-1082" data-mark="1061:11,1062:12,1063:13,1076:14,1078:15,1081:16"></pre>
+  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:1073-1097" data-mark="1076:11,1077:12,1078:13,1091:14,1093:15,1096:16"></pre>
   <ol class="co">
     <li data-n="11"><div>Stage 7: <code>let mut findings = unresolved;</code> <em>moves</em> the unresolved-include findings from stage 4 into the new name. No copy.</div></li>
     <li data-n="12"><div><code>analyze::run(&amp;idx, &amp;cols)</code> returns an owned <code>Vec&lt;Finding&gt;</code>, and <code>extend</code> moves its items in. The rules only read the index (<code>&amp;Index</code>), so they can't change it by accident.</div></li>
@@ -867,7 +867,7 @@ println!("{}", parent.name);   // uses parent after the push
     <li data-n="15"><div>The upgrade comparison runs only when a previous Core folder was given.</div></li>
     <li data-n="16"><div><code>upgrade::run</code> takes <strong>out-parameters</strong> (<code>&amp;mut findings</code>, <code>&amp;mut notes</code>) instead of returning a tuple. It appends to existing vectors. Both styles are idiomatic. Returning values reads more clearly, and out-parameters let the callee add to existing buffers.</div></li>
   </ol>
-  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:1084-1106" data-mark="1084:17,1085:18,1089:19,1095:20,1099:21,1106:22"></pre>
+  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:1099-1121" data-mark="1099:17,1100:18,1104:19,1110:20,1114:21,1121:22"></pre>
   <ol class="co">
     <li data-n="17"><div>A mutable iteration over <code>findings</code>, a local <code>Vec</code> (not <code>idx.findings</code>)…</div></li>
     <li data-n="18"><div>…so this closure can borrow <code>idx</code> freely. "Build locally, then move into <code>idx</code>" once more. <code>involves_cust</code> decides whether the UI shows the finding by default.</div></li>
@@ -876,7 +876,7 @@ println!("{}", parent.name);   // uses parent after the push
     <li data-n="21"><div><code>idx.findings = findings;</code> <em>moves</em> the vector into the index: the buffer changes owner, and nothing is copied.</div></li>
     <li data-n="22"><div><code>Ok(idx)</code> moves the whole <code>Index</code> out to the caller. Returning large owned values by value is normal Rust, since a move is at most a shallow copy of the struct's fields.</div></li>
   </ol>
-  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:1109-1116" data-mark="1110:23"></pre>
+  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:1124-1131" data-mark="1125:23"></pre>
   <ol class="co">
     <li data-n="23"><div>Elision with one reference input: the returned <code>&amp;Option&lt;…&gt;</code> borrows from <code>e</code>. Returning <code>&amp;Option&lt;T&gt;</code> is unusual. The more common signature is <code>Option&lt;&amp;T&gt;</code> (via <code>.as_ref()</code>). The caller immediately writes <code>.clone()</code> to get an owned copy.</div></li>
   </ol>
@@ -961,7 +961,7 @@ println!("{}", parent.name);   // uses parent after the push
     <li data-n="15"><div>Stage 5 already resolved the bases (<a class="ref" href="#s-overrides"></a>). This rule just reports what's left without one.</div></li>
     <li data-n="16"><div><code>let mut f = if … { let mut f = …; …; f } else { … };</code>: blocks are expressions, and a block's last expression is its value. Each branch builds and returns its own finding.</div></li>
   </ol>
-  <pre class="code" data-src="crates/ifsdep-core/src/analyze.rs:619-696" data-mark="620:17,621:18,653:19,656:20,667:21,672:22,675:23"></pre>
+  <pre class="code" data-src="crates/ifsdep-core/src/analyze.rs:619-699" data-mark="620:17,621:18,653:19,656:20,667:21,675:22,678:23"></pre>
   <ol class="co">
     <li data-n="17"><div>CONNECTION_MISSING: component lookup by name, <code>HashMap&lt;&amp;str, &amp;Component&gt;</code>, pointers only.</div></li>
     <li data-n="18"><div>A dedupe set keyed by <code>(file, target, &amp;str)</code>. The third part is a literal tag (<code>"missing"</code> or <code>"dynamic"</code>), so one set serves both checks.</div></li>
@@ -971,7 +971,7 @@ println!("{}", parent.name);   // uses parent after the push
     <li data-n="22"><div><code>match conn</code> with a guarded <code>None if reaches(src, tgt)</code> first: a component reached through a chain of STATIC connections counts as declared, worked out once per component in <code>static_reach</code> above. Then plain <code>None</code>, then a guarded <code>Some(c) if c.kind == "DYNAMIC" &amp;&amp; …</code> further down (line 697), then <code>_ =&gt; {}</code>. Missing and unguarded are two rules sharing one loop.</div></li>
     <li data-n="23"><div><code>if !seen.insert(…) { continue; }</code>: report each (file, target) pair once.</div></li>
   </ol>
-  <pre class="code" data-src="crates/ifsdep-core/src/analyze.rs:743-769" data-mark="745:24,747:25,760:26"></pre>
+  <pre class="code" data-src="crates/ifsdep-core/src/analyze.rs:746-772" data-mark="748:24,750:25,763:26"></pre>
   <ol class="co">
     <li data-n="24"><div>LAYER_MISMATCH: only files that declare a layer.</div></li>
     <li data-n="25"><div>A <code>match</code> on the folder layer that returns a <code>bool</code>: "this file says Core but sits in Cust, or the other way round".</div></li>
@@ -1035,7 +1035,7 @@ println!("{}", parent.name);   // uses parent after the push
   <div class="stop-head"><span class="num"></span><h2><code>Resolver&lt;'a&gt;</code>: <code>RefCell</code> and returning <code>'a</code></h2></div>
   <div class="files">crates/ifsdep-core/src/datatypes.rs (DATATYPE_MISMATCH rule) · build.rs</div>
   <div class="prose"><p>The datatype rule follows a value through functions, views and tables, which takes recursion. The <code>Resolver</code> struct borrows the whole index for <code>'a</code>, caches through <code>&amp;self</code>, and hands out references that outlive its own methods.</p></div>
-  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:1063-1073" data-mark="1063:1,1066:2"></pre>
+  <pre class="code" data-src="crates/ifsdep-core/src/build.rs:1078-1088" data-mark="1078:1,1081:2"></pre>
   <pre class="code" data-src="crates/ifsdep-core/src/datatypes.rs:59-63" data-mark="59:3"></pre>
   <ol class="co">
     <li data-n="1"><div>Back in <code>build.rs</code>: <code>inputs</code> collects <em>references</em> into <code>parsed</code>, the local vector from <a class="ref" href="#s-parse"></a>.</div></li>
